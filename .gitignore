@@ -3,6 +3,16 @@ __pycache__/
 *.py[codz]
 *$py.class
 
+# Local frontend and operating-system artifacts
+node_modules/
+.pnpm-store/
+.playwright-cli/
+output/playwright/
+playwright-report/
+test-results/
+*.tsbuildinfo
+.DS_Store
+
 # C extensions
 *.so
 
