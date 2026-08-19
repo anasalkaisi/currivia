@@ -29,17 +29,34 @@ export class IndexedDbPersonalPlanRepository implements PersonalPlanRepository {
   async load(): Promise<PersonalPlan | null> {
     const database = await this.open();
     const stored: unknown = await database.get(STORE_NAME, ACTIVE_PLAN_KEY);
-    database.close();
 
     if (stored === undefined) {
+      database.close();
       return null;
     }
 
+    let plan: PersonalPlan;
     try {
-      return parsePersonalPlan(stored, this.config);
+      plan = parsePersonalPlan(stored, this.config);
     } catch (error) {
+      database.close();
       throw new InvalidStoredPlanError({ cause: error });
     }
+
+    const wasLegacyPlan =
+      typeof stored === 'object' &&
+      stored !== null &&
+      'schemaVersion' in stored &&
+      stored.schemaVersion === 1;
+    if (wasLegacyPlan) {
+      try {
+        await database.put(STORE_NAME, plan, ACTIVE_PLAN_KEY);
+      } catch {
+        // Der valide, im Speicher migrierte Plan bleibt trotz Schreibfehler nutzbar.
+      }
+    }
+    database.close();
+    return plan;
   }
 
   async save(plan: PersonalPlan): Promise<void> {

@@ -4,9 +4,10 @@ import {
 } from '@currivia/schema';
 import { useMemo } from 'react';
 
-import { s1CurriculumDefinition } from '../../../curricula/hdm/mi7/sose2025/curriculum';
+import { curriculumDefinition } from '../../../curricula/hdm/mi7/sose2025/curriculum';
 import { AppShell } from './components/AppShell';
 import { Onboarding } from './components/Onboarding';
+import { HistoryWizard } from './components/HistoryWizard';
 import { Planner } from './components/Planner';
 import { SourceDetails } from './components/SourceDetails';
 import {
@@ -20,7 +21,7 @@ import { PlanProvider } from './plan/PlanContext';
 import { usePlan } from './plan/usePlan';
 import { useRoute } from './routes';
 
-const parsedConfig = curriculumConfigSchema.safeParse(s1CurriculumDefinition);
+const parsedConfig = curriculumConfigSchema.safeParse(curriculumDefinition);
 
 function RoutedApp({ config }: { config: CurriculumConfig }) {
   const route = useRoute();
@@ -30,6 +31,7 @@ function RoutedApp({ config }: { config: CurriculumConfig }) {
   if (loadState === 'invalid') return <InvalidStoragePage />;
 
   if (route.name === 'planner') return <Planner config={config} />;
+  if (route.name === 'history') return <HistoryWizard config={config} />;
   if (route.name === 'source') {
     return <SourceDetails config={config} itemId={route.itemId} />;
   }

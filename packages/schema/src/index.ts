@@ -24,6 +24,8 @@ const curriculumItemSchema = z.object({
   recommendedSemester: z.number().int().positive(),
   creditsHundredths: z.number().int().positive(),
   assessment: z.object({
+    id: z.string().min(1),
+    title: z.object({ de: z.string().min(1) }),
     type: z.literal('written-exam'),
     minutes: z.literal(60),
   }),
@@ -47,6 +49,9 @@ export const curriculumConfigSchema = z
     applicability: z.object({
       program: z.literal('medieninformatik-bachelor'),
       enrollmentFrom: z.literal('sose-2025'),
+    }),
+    gradingScale: z.object({
+      allowedHundredths: z.array(z.number().int()).min(1),
     }),
     sources: z.array(sourceSchema).min(1),
     curriculumItems: z.array(curriculumItemSchema).length(1),
@@ -97,36 +102,75 @@ export const curriculumConfigSchema = z
     }
   });
 
-const completionSchema = z.object({
+export const officialStatusSchema = z.enum(['AN', 'BE', 'NB', 'EN', 'RT']);
+
+const componentRecordSchema = z.object({
+  componentId: z.string().min(1),
+  semester: z.number().int().positive(),
+  officialStatus: officialStatusSchema,
+  officialAttempt: z.number().int().positive().optional(),
+});
+
+const moduleRecordSchema = z.object({
   curriculumItemId: z.string().min(1),
-  officialStatus: z.literal('BE'),
+  semester: z.number().int().positive().optional(),
+  officialStatus: officialStatusSchema,
+  officialAttempt: z.number().int().positive().optional(),
+  gradeHundredths: z.number().int().optional(),
+  componentRecords: z.array(componentRecordSchema),
 });
 
 export const personalPlanSchema = z
   .object({
-    schemaVersion: z.literal(1),
+    schemaVersion: z.literal(2),
     regulationVersion: z.literal('mi7-sose2025'),
     enrollmentSemester: z.literal('sose-2025'),
     regulationConfirmedAt: z.iso.datetime(),
-    completions: z.array(completionSchema),
+    moduleRecords: z.array(moduleRecordSchema),
   })
   .superRefine((plan, context) => {
-    const ids = plan.completions.map(
-      (completion) => completion.curriculumItemId,
-    );
+    const ids = plan.moduleRecords.map((record) => record.curriculumItemId);
     if (new Set(ids).size !== ids.length) {
       context.addIssue({
         code: 'custom',
         message: 'Ein Modul darf nur einen Abschlussdatensatz besitzen.',
-        path: ['completions'],
+        path: ['moduleRecords'],
       });
     }
+
+    for (const [recordIndex, record] of plan.moduleRecords.entries()) {
+      const componentIds = record.componentRecords.map(
+        (component) => component.componentId,
+      );
+      if (new Set(componentIds).size !== componentIds.length) {
+        context.addIssue({
+          code: 'custom',
+          message: 'Ein Prüfungsbestandteil darf nur einmal erfasst werden.',
+          path: ['moduleRecords', recordIndex, 'componentRecords'],
+        });
+      }
+    }
   });
+
+const legacyPersonalPlanSchema = z.object({
+  schemaVersion: z.literal(1),
+  regulationVersion: z.literal('mi7-sose2025'),
+  enrollmentSemester: z.literal('sose-2025'),
+  regulationConfirmedAt: z.iso.datetime(),
+  completions: z.array(
+    z.object({
+      curriculumItemId: z.string().min(1),
+      officialStatus: z.literal('BE'),
+    }),
+  ),
+});
 
 export type CurriculumConfig = z.infer<typeof curriculumConfigSchema>;
 export type CurriculumItem = CurriculumConfig['curriculumItems'][number];
 export type SumCreditsRequirement = CurriculumConfig['requirements'][number];
 export type PersonalPlan = z.infer<typeof personalPlanSchema>;
+export type ModuleRecord = PersonalPlan['moduleRecords'][number];
+export type OfficialStatus = z.infer<typeof officialStatusSchema>;
 
 export function parseCurriculumConfig(input: unknown): CurriculumConfig {
   return curriculumConfigSchema.parse(input);
@@ -136,7 +180,21 @@ export function parsePersonalPlan(
   input: unknown,
   config: CurriculumConfig,
 ): PersonalPlan {
-  const plan = personalPlanSchema.parse(input);
+  const legacy = legacyPersonalPlanSchema.safeParse(input);
+  const migrated = legacy.success
+    ? {
+        schemaVersion: 2 as const,
+        regulationVersion: legacy.data.regulationVersion,
+        enrollmentSemester: legacy.data.enrollmentSemester,
+        regulationConfirmedAt: legacy.data.regulationConfirmedAt,
+        moduleRecords: legacy.data.completions.map((completion) => ({
+          curriculumItemId: completion.curriculumItemId,
+          officialStatus: completion.officialStatus,
+          componentRecords: [],
+        })),
+      }
+    : input;
+  const plan = personalPlanSchema.parse(migrated);
   const itemIds = new Set(config.curriculumItems.map((item) => item.id));
 
   if (plan.regulationVersion !== config.regulationVersion) {
@@ -145,10 +203,31 @@ export function parsePersonalPlan(
     );
   }
 
-  for (const completion of plan.completions) {
-    if (!itemIds.has(completion.curriculumItemId)) {
+  for (const [recordIndex, record] of plan.moduleRecords.entries()) {
+    if (!itemIds.has(record.curriculumItemId)) {
       throw new Error(
-        `Unbekannte Modulreferenz im persönlichen Zustand: ${completion.curriculumItemId}`,
+        `Unbekannte Modulreferenz im persönlichen Zustand: ${record.curriculumItemId}`,
+      );
+    }
+
+    const item = config.curriculumItems.find(
+      (candidate) => candidate.id === record.curriculumItemId,
+    );
+    const componentIds = new Set(item ? [item.assessment.id] : []);
+    for (const component of record.componentRecords) {
+      if (!componentIds.has(component.componentId)) {
+        throw new Error(
+          `Unbekannte Komponentenreferenz im persönlichen Zustand: ${component.componentId}`,
+        );
+      }
+    }
+
+    if (
+      record.gradeHundredths !== undefined &&
+      !config.gradingScale.allowedHundredths.includes(record.gradeHundredths)
+    ) {
+      throw new Error(
+        `Ungültige Note im Moduldatensatz ${recordIndex + 1}: ${record.gradeHundredths}`,
       );
     }
   }

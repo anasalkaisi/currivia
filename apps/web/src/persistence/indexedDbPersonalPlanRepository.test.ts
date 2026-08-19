@@ -13,6 +13,9 @@ const config = parseCurriculumConfig({
     program: 'medieninformatik-bachelor',
     enrollmentFrom: 'sose-2025',
   },
+  gradingScale: {
+    allowedHundredths: [100, 130, 170, 200, 230, 270, 300, 330, 370, 400, 500],
+  },
   sources: [
     {
       id: 'Q-SPO-2025',
@@ -33,7 +36,12 @@ const config = parseCurriculumConfig({
       area: 'basic-compulsory',
       recommendedSemester: 1,
       creditsHundredths: 500,
-      assessment: { type: 'written-exam', minutes: 60 },
+      assessment: {
+        id: 'hdm-mi7-113114-written-exam',
+        title: { de: 'Schriftliche Prüfung' },
+        type: 'written-exam',
+        minutes: 60,
+      },
       prerequisites: 'none',
       sourceRefs: ['Q-SPO-2025'],
     },
@@ -55,11 +63,11 @@ function repository() {
 }
 
 const emptyPlan: PersonalPlan = {
-  schemaVersion: 1,
+  schemaVersion: 2,
   regulationVersion: 'mi7-sose2025',
   enrollmentSemester: 'sose-2025',
   regulationConfirmedAt: '2026-08-19T12:00:00.000Z',
-  completions: [],
+  moduleRecords: [],
 };
 
 describe('IndexedDB-Repository', () => {
@@ -71,15 +79,63 @@ describe('IndexedDB-Repository', () => {
     const { value } = repository();
     const passedPlan: PersonalPlan = {
       ...emptyPlan,
-      completions: [
-        { curriculumItemId: 'hdm-mi7-113114', officialStatus: 'BE' },
+      moduleRecords: [
+        {
+          curriculumItemId: 'hdm-mi7-113114',
+          semester: 2,
+          officialStatus: 'BE',
+          officialAttempt: 2,
+          gradeHundredths: 170,
+          componentRecords: [
+            {
+              componentId: 'hdm-mi7-113114-written-exam',
+              semester: 2,
+              officialStatus: 'BE',
+              officialAttempt: 2,
+            },
+          ],
+        },
       ],
     };
     await value.save(passedPlan);
     expect(await value.load()).toEqual(passedPlan);
 
     await value.save(emptyPlan);
-    expect((await value.load())?.completions).toEqual([]);
+    expect((await value.load())?.moduleRecords).toEqual([]);
+  });
+
+  it('schreibt einen geladenen S1-Zustand unmittelbar als S2 zurück', async () => {
+    const { name, value } = repository();
+    const database = await openDB(name, 1, {
+      upgrade(db) {
+        db.createObjectStore('personal-plan');
+      },
+    });
+    await database.put(
+      'personal-plan',
+      {
+        schemaVersion: 1,
+        regulationVersion: 'mi7-sose2025',
+        enrollmentSemester: 'sose-2025',
+        regulationConfirmedAt: '2026-08-19T12:00:00.000Z',
+        completions: [
+          { curriculumItemId: 'hdm-mi7-113114', officialStatus: 'BE' },
+        ],
+      },
+      'active-plan',
+    );
+    database.close();
+
+    const loaded = await value.load();
+    expect(loaded?.schemaVersion).toBe(2);
+    expect(loaded?.moduleRecords[0]?.semester).toBeUndefined();
+
+    const check = await openDB(name, 1);
+    expect(await check.get('personal-plan', 'active-plan')).toMatchObject({
+      schemaVersion: 2,
+      moduleRecords: [{ officialStatus: 'BE' }],
+    });
+    check.close();
   });
 
   it('lehnt einen ungültigen gespeicherten Zustand sicher ab', async () => {

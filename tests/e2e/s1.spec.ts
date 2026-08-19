@@ -20,7 +20,7 @@ test('S1: SPO bestätigen, BE speichern, neu laden und Quelle prüfen', async ({
   await expect(page).toHaveURL(/#\/planner$/);
   await expect(page.getByText('0 / 210 ECTS')).toBeVisible();
   await expect(
-    page.getByText(/Curriculumsdatensatz enthält derzeit nur ein Modul/),
+    page.getByText(/Curriculumsdatensatz enthält weiterhin nur ein Modul/),
   ).toBeVisible();
   expect((await new AxeBuilder({ page }).analyze()).violations).toEqual([]);
 

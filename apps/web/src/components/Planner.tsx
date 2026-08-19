@@ -1,12 +1,19 @@
 import type { CurriculumConfig } from '@currivia/schema';
 import { evaluateTotalCredits } from '@currivia/rules';
 
-import { areaLabels, content } from '../content';
+import { areaLabels, content, statusOptions } from '../content';
 import { usePlan } from '../plan/usePlan';
 
 function formatCredits(hundredths: number): string {
   return new Intl.NumberFormat('de-DE', {
     maximumFractionDigits: 2,
+  }).format(hundredths / 100);
+}
+
+function formatGrade(hundredths: number): string {
+  return new Intl.NumberFormat('de-DE', {
+    minimumFractionDigits: 1,
+    maximumFractionDigits: 1,
   }).format(hundredths / 100);
 }
 
@@ -31,8 +38,26 @@ export function Planner({ config }: { config: CurriculumConfig }) {
   const item = config.curriculumItems[0];
   if (!item) return null;
 
-  const isPassed = plan.completions.some(
-    (completion) => completion.curriculumItemId === item.id,
+  const record = plan.moduleRecords.find(
+    (candidate) => candidate.curriculumItemId === item.id,
+  );
+  const isPassed = record?.officialStatus === 'BE';
+  const status = statusOptions.find(
+    (option) => option.code === record?.officialStatus,
+  );
+  const component = record?.componentRecords[0];
+  const componentStatus = statusOptions.find(
+    (option) => option.code === component?.officialStatus,
+  );
+  const hasContradiction =
+    record?.officialStatus === 'BE' &&
+    component !== undefined &&
+    ['NB', 'EN'].includes(component.officialStatus);
+  const hasDetailedRecord = Boolean(
+    record?.semester ||
+      record?.officialAttempt ||
+      record?.gradeHundredths ||
+      record?.componentRecords.length,
   );
   const result = evaluateTotalCredits(config, plan);
   const semester = item.recommendedSemester;
@@ -81,6 +106,27 @@ export function Planner({ config }: { config: CurriculumConfig }) {
         </div>
       </header>
 
+      <nav className="planner-tools" aria-label="Aktionen zum Studienverlauf">
+        <div>
+          <span>Vergangene Semester</span>
+          <strong>Offizielle Angaben aus SELMA übertragen</strong>
+        </div>
+        <a className="primary-button compact" href="#/history">
+          {record ? 'Studienverlauf bearbeiten' : 'Studienverlauf erfassen'}
+        </a>
+      </nav>
+
+      {record?.officialStatus === 'EN' && (
+        <div className="critical-note planner-critical" role="alert">
+          <strong>Endgültig nicht bestanden (EN): offiziell klären</strong>
+          <p>
+            Currivia berechnet daraus keinen Studienabbruch und schlägt keinen
+            weiteren Versuch vor. Bitte wende dich umgehend an das Prüfungsamt
+            oder die zuständige Studienberatung.
+          </p>
+        </div>
+      )}
+
       <section className="semester-sheet" aria-labelledby="semester-title">
         <header className="semester-header">
           <div>
@@ -107,7 +153,7 @@ export function Planner({ config }: { config: CurriculumConfig }) {
                 aria-live="polite"
               >
                 <span aria-hidden="true">{isPassed ? '✓' : '○'}</span>
-                Status: {isPassed ? 'Bestanden (BE)' : 'Offen'}
+                Status: {status ? `${status.label} (${status.code})` : 'Offen'}
               </p>
               <p className="save-status" role="status" aria-live="polite">
                 {saveState === 'saving' && 'Wird lokal gespeichert …'}
@@ -115,8 +161,64 @@ export function Planner({ config }: { config: CurriculumConfig }) {
                 {saveState === 'error' && 'Lokales Speichern fehlgeschlagen'}
               </p>
             </div>
+            {record && (
+              <dl className="record-details">
+                <div>
+                  <dt>Erfasst für</dt>
+                  <dd>
+                    {record.semester
+                      ? `${record.semester}. Fachsemester`
+                      : 'Nicht erfasst'}
+                  </dd>
+                </div>
+                <div>
+                  <dt>Note</dt>
+                  <dd>
+                    {record.gradeHundredths
+                      ? formatGrade(record.gradeHundredths)
+                      : 'Nicht erfasst'}
+                  </dd>
+                </div>
+                <div>
+                  <dt>Offizieller Versuch</dt>
+                  <dd>{record.officialAttempt ?? 'Nicht erfasst'}</dd>
+                </div>
+              </dl>
+            )}
+            {record && (
+              <section
+                className="component-summary"
+                aria-labelledby="component-title"
+              >
+                <div>
+                  <p className="component-kicker">Prüfungsbestandteile</p>
+                  <h4 id="component-title">{item.assessment.title.de}</h4>
+                </div>
+                {component ? (
+                  <p>
+                    FS {component.semester} · {componentStatus?.label} (
+                    {component.officialStatus})
+                    {component.officialAttempt
+                      ? ` · offizieller Versuch ${component.officialAttempt}`
+                      : ''}
+                  </p>
+                ) : (
+                  <p className="unknown-state">
+                    Nicht prüfbar · Bestandteildaten nicht erfasst
+                  </p>
+                )}
+              </section>
+            )}
+            {hasContradiction && (
+              <div className="consistency-note" role="status">
+                <strong>Angaben wirken widersprüchlich.</strong> Der erfasste
+                Bestandteil hat den Status {componentStatus?.label} (
+                {component?.officialStatus}), der offizielle Modulstatus ist BE.
+                Der Modulstatus bleibt unverändert; prüfe die Übertragung.
+              </div>
+            )}
             <div className="module-actions">
-              {isPassed ? (
+              {isPassed && !hasDetailedRecord ? (
                 <button
                   className="secondary-button"
                   type="button"
@@ -124,7 +226,7 @@ export function Planner({ config }: { config: CurriculumConfig }) {
                 >
                   Auf „offen“ zurücksetzen
                 </button>
-              ) : (
+              ) : !record ? (
                 <button
                   className="primary-button compact"
                   type="button"
@@ -132,6 +234,10 @@ export function Planner({ config }: { config: CurriculumConfig }) {
                 >
                   Als bestanden markieren
                 </button>
+              ) : (
+                <a className="secondary-button" href="#/history">
+                  Offiziellen Status bearbeiten
+                </a>
               )}
               <a className="source-link" href={`#/sources/${item.id}`}>
                 Quelle anzeigen

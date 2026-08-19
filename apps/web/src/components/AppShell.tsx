@@ -36,7 +36,7 @@ export function AppShell({ children }: { children: ReactNode }) {
         </main>
         <footer className="site-footer">
           <p>{content.disclaimer}</p>
-          <p>Lokale S1-Entwicklung · keine öffentliche Alpha</p>
+          <p>Lokale S2-Entwicklung · keine öffentliche Alpha</p>
         </footer>
       </div>
     </>

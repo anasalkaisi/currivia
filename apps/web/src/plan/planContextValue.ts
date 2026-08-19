@@ -1,4 +1,4 @@
-import type { PersonalPlan } from '@currivia/schema';
+import type { ModuleRecord, PersonalPlan } from '@currivia/schema';
 import { createContext } from 'react';
 
 export type PlanContextValue = {
@@ -9,6 +9,7 @@ export type PlanContextValue = {
   createPlan: () => void;
   setPassed: (itemId: string) => void;
   resetOpen: (itemId: string) => void;
+  saveModuleRecord: (record: ModuleRecord) => Promise<void>;
 };
 
 export const PlanContext = createContext<PlanContextValue | null>(null);

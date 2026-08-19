@@ -14,6 +14,9 @@ const validConfig = {
     program: 'medieninformatik-bachelor',
     enrollmentFrom: 'sose-2025',
   },
+  gradingScale: {
+    allowedHundredths: [100, 130, 170, 200, 230, 270, 300, 330, 370, 400, 500],
+  },
   sources: [
     {
       id: 'Q-SPO-2025',
@@ -34,7 +37,12 @@ const validConfig = {
       area: 'basic-compulsory',
       recommendedSemester: 1,
       creditsHundredths: 500,
-      assessment: { type: 'written-exam', minutes: 60 },
+      assessment: {
+        id: 'hdm-mi7-113114-written-exam',
+        title: { de: 'Schriftliche Prüfung' },
+        type: 'written-exam',
+        minutes: 60,
+      },
       prerequisites: 'none',
       sourceRefs: ['Q-SPO-2025'],
     },
@@ -82,11 +90,11 @@ describe('Curriculumsschema', () => {
 
 describe('persönliches Schema', () => {
   const plan = {
-    schemaVersion: 1,
+    schemaVersion: 2,
     regulationVersion: 'mi7-sose2025',
     enrollmentSemester: 'sose-2025',
     regulationConfirmedAt: '2026-08-19T12:00:00.000Z',
-    completions: [],
+    moduleRecords: [],
   } as const;
 
   it('enthält keine duplizierten offiziellen Moduldaten', () => {
@@ -95,16 +103,97 @@ describe('persönliches Schema', () => {
     expect(keys).not.toContain('requirements');
   });
 
+  it('migriert einen S1-Abschlussdatensatz verlustfrei', () => {
+    const config = parseCurriculumConfig(validConfig);
+    const migrated = parsePersonalPlan(
+      {
+        schemaVersion: 1,
+        regulationVersion: 'mi7-sose2025',
+        enrollmentSemester: 'sose-2025',
+        regulationConfirmedAt: '2026-08-19T12:00:00.000Z',
+        completions: [
+          { curriculumItemId: 'hdm-mi7-113114', officialStatus: 'BE' },
+        ],
+      },
+      config,
+    );
+    expect(migrated).toMatchObject({
+      schemaVersion: 2,
+      moduleRecords: [
+        {
+          curriculumItemId: 'hdm-mi7-113114',
+          officialStatus: 'BE',
+          componentRecords: [],
+        },
+      ],
+    });
+    expect(migrated.moduleRecords[0]?.semester).toBeUndefined();
+  });
+
   it('lehnt eine unbekannte Modulreferenz ab', () => {
     const config = parseCurriculumConfig(validConfig);
     expect(() =>
       parsePersonalPlan(
         {
           ...plan,
-          completions: [{ curriculumItemId: 'unknown', officialStatus: 'BE' }],
+          moduleRecords: [
+            {
+              curriculumItemId: 'unknown',
+              semester: 1,
+              officialStatus: 'BE',
+              componentRecords: [],
+            },
+          ],
         },
         config,
       ),
     ).toThrow(/Unbekannte Modulreferenz/);
+  });
+
+  it('lehnt eine Note außerhalb der konfigurierten Skala ab', () => {
+    const config = parseCurriculumConfig(validConfig);
+    expect(() =>
+      parsePersonalPlan(
+        {
+          ...plan,
+          moduleRecords: [
+            {
+              curriculumItemId: 'hdm-mi7-113114',
+              semester: 1,
+              officialStatus: 'BE',
+              gradeHundredths: 150,
+              componentRecords: [],
+            },
+          ],
+        },
+        config,
+      ),
+    ).toThrow(/Ungültige Note/);
+  });
+
+  it('lehnt unbekannte Prüfungsbestandteile ab', () => {
+    const config = parseCurriculumConfig(validConfig);
+    expect(() =>
+      parsePersonalPlan(
+        {
+          ...plan,
+          moduleRecords: [
+            {
+              curriculumItemId: 'hdm-mi7-113114',
+              semester: 1,
+              officialStatus: 'AN',
+              componentRecords: [
+                {
+                  componentId: 'unknown',
+                  semester: 2,
+                  officialStatus: 'RT',
+                },
+              ],
+            },
+          ],
+        },
+        config,
+      ),
+    ).toThrow(/Unbekannte Komponentenreferenz/);
   });
 });

@@ -48,7 +48,7 @@ export function SourceDetails({
         <p className="section-kicker">Quellennachweis · {item.officialCode}</p>
         <h1>{item.title.de}</h1>
         <p>
-          Die sichtbaren S1-Fakten stammen aus den folgenden offiziellen,
+          Die sichtbaren Fakten stammen aus den folgenden offiziellen,
           versionierten Unterlagen.
         </p>
       </header>

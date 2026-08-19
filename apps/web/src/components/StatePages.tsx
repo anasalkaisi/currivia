@@ -19,7 +19,7 @@ export function InvalidStoragePage() {
       <p className="section-kicker">Sicherer Ladeabbruch</p>
       <h1 id="storage-error-title">{content.invalidStorageTitle}</h1>
       <p>{content.invalidStorageBody}</p>
-      <p className="error-reference">Diagnose: S1-STORAGE-INVALID</p>
+      <p className="error-reference">Diagnose: S2-STORAGE-INVALID</p>
     </section>
   );
 }
@@ -34,10 +34,10 @@ export function InvalidConfigurationPage() {
       <p className="section-kicker">Sicherer Konfigurationsabbruch</p>
       <h1 id="config-error-title">Curriculum kann nicht geladen werden</h1>
       <p>
-        Die gebündelte S1-Konfiguration ist ungültig. Der persönliche Planner
+        Die gebündelte S2-Konfiguration ist ungültig. Der persönliche Planner
         wurde nicht gestartet.
       </p>
-      <p className="error-reference">Diagnose: S1-CONFIG-INVALID</p>
+      <p className="error-reference">Diagnose: S2-CONFIG-INVALID</p>
     </section>
   );
 }
