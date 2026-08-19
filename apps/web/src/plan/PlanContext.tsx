@@ -49,6 +49,7 @@ function reducer(state: State, action: Action): State {
         ...state,
         loadState: 'ready',
         plan: action.plan,
+        saveState: 'saving',
         revision: state.revision + 1,
       };
     case 'setPassed': {
@@ -64,6 +65,7 @@ function reducer(state: State, action: Action): State {
       return {
         ...state,
         plan: { ...state.plan, completions },
+        saveState: 'saving',
         revision: state.revision + 1,
       };
     }
@@ -77,6 +79,7 @@ function reducer(state: State, action: Action): State {
             (completion) => completion.curriculumItemId !== action.itemId,
           ),
         },
+        saveState: 'saving',
         revision: state.revision + 1,
       };
     case 'saving':
