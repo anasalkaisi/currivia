@@ -135,6 +135,8 @@ export function PlanProvider({
 }) {
   const [state, dispatch] = useReducer(reducer, initialState);
   const saveQueue = useRef(Promise.resolve());
+  const nextSaveRequestId = useRef(0);
+  const claimedSaveRequestIds = useRef(new Set<number>());
   const saveWaiters = useRef(
     new Map<
       number,
@@ -161,20 +163,31 @@ export function PlanProvider({
     if (state.revision === 0 || !state.plan) return;
 
     const planToSave = state.plan;
-    const revisionToSave = state.revision;
+    const requestIdsToSettle = [...saveWaiters.current.keys()].filter(
+      (requestId) => !claimedSaveRequestIds.current.has(requestId),
+    );
+    requestIdsToSettle.forEach((requestId) =>
+      claimedSaveRequestIds.current.add(requestId),
+    );
     dispatch({ type: 'saving' });
     saveQueue.current = saveQueue.current
       .catch(() => undefined)
       .then(() => repository.save(planToSave))
       .then(() => {
         dispatch({ type: 'saved' });
-        saveWaiters.current.get(revisionToSave)?.resolve();
-        saveWaiters.current.delete(revisionToSave);
+        requestIdsToSettle.forEach((requestId) => {
+          saveWaiters.current.get(requestId)?.resolve();
+          saveWaiters.current.delete(requestId);
+          claimedSaveRequestIds.current.delete(requestId);
+        });
       })
       .catch((error: unknown) => {
         dispatch({ type: 'saveFailed' });
-        saveWaiters.current.get(revisionToSave)?.reject(error);
-        saveWaiters.current.delete(revisionToSave);
+        requestIdsToSettle.forEach((requestId) => {
+          saveWaiters.current.get(requestId)?.reject(error);
+          saveWaiters.current.delete(requestId);
+          claimedSaveRequestIds.current.delete(requestId);
+        });
       });
   }, [repository, state.plan, state.revision]);
 
@@ -199,17 +212,15 @@ export function PlanProvider({
     dispatch({ type: 'resetOpen', itemId });
   }, []);
 
-  const saveModuleRecord = useCallback(
-    (record: ModuleRecord) => {
-      const revisionToSave = state.revision + 1;
-      const completion = new Promise<void>((resolve, reject) => {
-        saveWaiters.current.set(revisionToSave, { resolve, reject });
-      });
-      dispatch({ type: 'saveModuleRecord', record });
-      return completion;
-    },
-    [state.revision],
-  );
+  const saveModuleRecord = useCallback((record: ModuleRecord) => {
+    const requestId = nextSaveRequestId.current + 1;
+    nextSaveRequestId.current = requestId;
+    const completion = new Promise<void>((resolve, reject) => {
+      saveWaiters.current.set(requestId, { resolve, reject });
+    });
+    dispatch({ type: 'saveModuleRecord', record });
+    return completion;
+  }, []);
 
   const value = useMemo(
     () => ({

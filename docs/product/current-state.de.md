@@ -18,7 +18,7 @@ Diese Datei ist der kurze Einstieg für eine neue Arbeitssitzung. Sie ersetzt we
 - Die offiziellen S1-Fakten sind anhand der HdM-SPO und des archivierten Modulhandbuchs dokumentiert.
 - Drei grundlegende Architekturentscheidungen und fünf Regel-Designproben liegen vor.
 - S2 ist auf `codex/s2-study-history` vollständig implementiert und für den Review vorbereitet.
-- Formatierung, Linting, Typprüfung, Produktionsbuild, 24 Unit-/Integrationstests und 3 Browser-End-to-End-Tests sind grün.
+- Formatierung, Linting, Typprüfung, Produktionsbuild, 31 Unit-/Integrationstests und 4 Browser-End-to-End-Tests sind grün.
 - Der S2-Nutzerweg wurde auf Desktop und Mobil geprüft; die menschliche Abnahme ist noch offen.
 - Eine unabhängige Zweitprüfung der offiziellen Quellen bleibt Bestandteil der späteren Abnahme.
 

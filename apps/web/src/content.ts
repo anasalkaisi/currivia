@@ -19,18 +19,20 @@ export const areaLabels = {
   'basic-compulsory': 'Pflicht · Grundstudium',
 } as const;
 
-export const statusOptions: {
-  code: OfficialStatus;
-  label: string;
-  help: string;
-}[] = [
-  { code: 'AN', label: 'Angemeldet', help: 'Begonnen oder angemeldet' },
-  { code: 'BE', label: 'Bestanden', help: 'ECTS werden angerechnet' },
-  { code: 'NB', label: 'Nicht bestanden', help: 'Keine ECTS' },
-  { code: 'EN', label: 'Endgültig nicht bestanden', help: 'Offiziell klären' },
-  {
-    code: 'RT',
+const statusDetails: Record<OfficialStatus, { label: string; help: string }> = {
+  AN: { label: 'Angemeldet', help: 'Begonnen oder angemeldet' },
+  BE: { label: 'Bestanden', help: 'ECTS werden angerechnet' },
+  NB: { label: 'Nicht bestanden', help: 'Keine ECTS' },
+  EN: { label: 'Endgültig nicht bestanden', help: 'Offiziell klären' },
+  RT: {
     label: 'Rücktritt',
     help: 'Keine automatische Versuchswertung',
   },
-];
+};
+
+const statusOrder: OfficialStatus[] = ['AN', 'BE', 'NB', 'EN', 'RT'];
+
+export const statusOptions = statusOrder.map((code) => ({
+  code,
+  ...statusDetails[code],
+}));

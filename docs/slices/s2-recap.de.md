@@ -22,8 +22,8 @@ S2 liefert einen geführten, tastaturbedienbaren Erfassungsweg für den bestehen
 ## Verifikation
 
 - Formatierung, Linting, Typprüfung und Produktionsbuild erfolgreich
-- 24 Unit- und Integrationstests erfolgreich
-- 3 Chromium-End-to-End-Tests erfolgreich
+- 31 Unit- und Integrationstests erfolgreich
+- 4 Chromium-End-to-End-Tests erfolgreich
 - automatisierte Accessibility-Prüfung von Onboarding, Planner, Assistent und gespeichertem EN-Zustand ohne Verstöße
 - Desktop- und Mobilansicht im echten Browser geprüft
 - visueller Fund „beibehaltene Scrollposition beim Routenwechsel“ behoben und erneut geprüft

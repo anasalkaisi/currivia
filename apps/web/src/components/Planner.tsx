@@ -2,18 +2,12 @@ import type { CurriculumConfig } from '@currivia/schema';
 import { evaluateTotalCredits } from '@currivia/rules';
 
 import { areaLabels, content, statusOptions } from '../content';
+import { formatGrade } from '../format';
 import { usePlan } from '../plan/usePlan';
 
 function formatCredits(hundredths: number): string {
   return new Intl.NumberFormat('de-DE', {
     maximumFractionDigits: 2,
-  }).format(hundredths / 100);
-}
-
-function formatGrade(hundredths: number): string {
-  return new Intl.NumberFormat('de-DE', {
-    minimumFractionDigits: 1,
-    maximumFractionDigits: 1,
   }).format(hundredths / 100);
 }
 

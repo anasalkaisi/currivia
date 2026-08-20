@@ -43,5 +43,51 @@ test('S2: offiziellen Verlauf mit EN und semesterübergreifendem Bestandteil erf
   await expect(page.getByText('0 / 210 ECTS')).toBeVisible();
   await page.reload();
   await expect(page.getByText(/FS 2 · Rücktritt \(RT\)/)).toBeVisible();
+  await expect(page.getByText('1,7')).toBeVisible();
+  await expect(page.getByText('2', { exact: true })).toHaveCount(1);
   expect((await new AxeBuilder({ page }).analyze()).violations).toEqual([]);
+});
+
+test('S2: Verlauf per Tastatur speichern', async ({ page }) => {
+  await page.goto('/#/onboarding');
+  const consent = page.getByRole('checkbox', {
+    name: /SPO-Version.*geprüft/i,
+  });
+  await consent.focus();
+  await page.keyboard.press('Space');
+  const openButton = page.getByRole('button', { name: /Plan öffnen/ });
+  await openButton.focus();
+  await page.keyboard.press('Enter');
+
+  const historyLink = page.getByRole('link', {
+    name: 'Studienverlauf erfassen',
+  });
+  await historyLink.focus();
+  await page.keyboard.press('Enter');
+
+  const semester = page.getByLabel('Tatsächliches Fachsemester');
+  await semester.focus();
+  await page.keyboard.type('1');
+  const next = page.getByRole('button', { name: 'Weiter' });
+  await next.focus();
+  await page.keyboard.press('Enter');
+
+  const moduleChoice = page.getByRole('checkbox', { name: /Web Development/ });
+  await moduleChoice.focus();
+  await page.keyboard.press('Space');
+  await next.focus();
+  await page.keyboard.press('Enter');
+
+  const passed = page.getByRole('radio', { name: /Bestanden/ });
+  await passed.focus();
+  await page.keyboard.press('Space');
+  await next.focus();
+  await page.keyboard.press('Enter');
+  await next.focus();
+  await page.keyboard.press('Enter');
+
+  const save = page.getByRole('button', { name: 'Verlauf lokal speichern' });
+  await save.focus();
+  await page.keyboard.press('Enter');
+  await expect(page).toHaveURL(/#\/planner$/);
 });

@@ -6,12 +6,9 @@ import type {
 import { useState } from 'react';
 
 import { statusOptions } from '../content';
+import { formatGrade } from '../format';
 import { usePlan } from '../plan/usePlan';
 import { navigate } from '../routes';
-
-function formatGrade(hundredths: number): string {
-  return (hundredths / 100).toFixed(1).replace('.', ',');
-}
 
 function isPositiveInteger(value: string): boolean {
   return /^[1-9]\d*$/.test(value);
@@ -363,11 +360,18 @@ export function HistoryWizard({ config }: { config: CurriculumConfig }) {
                 </label>
               </div>
             )}
-            {!componentFieldsAreValid && (
+            {includeComponent && componentStatus === '' && (
               <p className="critical-note" role="alert">
-                Semester und Versuchszahl müssen positive ganze Zahlen sein.
+                Bitte wähle den offiziellen Status des Bestandteils.
               </p>
             )}
+            {includeComponent &&
+              componentStatus !== '' &&
+              !componentFieldsAreValid && (
+                <p className="critical-note" role="alert">
+                  Semester und Versuchszahl müssen positive ganze Zahlen sein.
+                </p>
+              )}
             <dl className="review-ledger">
               <div>
                 <dt>Modul</dt>

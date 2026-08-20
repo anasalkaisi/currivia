@@ -1,7 +1,7 @@
 import { act, cleanup, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import axe from 'axe-core';
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import type { PersonalPlan } from '@currivia/schema';
 
 import { App } from './App';
@@ -38,6 +38,10 @@ class DeferredHistoryRepository extends MemoryRepository {
     });
   }
 }
+
+beforeEach(() => {
+  window.location.hash = '';
+});
 
 afterEach(() => {
   window.location.hash = '';
