@@ -40,7 +40,7 @@ test('S2: offiziellen Verlauf mit EN und semesterübergreifendem Bestandteil erf
       .filter({ hasText: 'Endgültig nicht bestanden (EN)' }),
   ).toBeVisible();
   await expect(page.getByText(/FS 2 · Rücktritt \(RT\)/)).toBeVisible();
-  await expect(page.getByText('0 / 210 ECTS')).toBeVisible();
+  await expect(page.getByText('0 / 210 ECTS', { exact: true })).toBeVisible();
   await page.reload();
   await expect(page.getByText(/FS 2 · Rücktritt \(RT\)/)).toBeVisible();
   await expect(page.getByText('1,7')).toBeVisible();

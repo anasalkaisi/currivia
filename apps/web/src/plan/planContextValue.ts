@@ -1,4 +1,4 @@
-import type { ModuleRecord, PersonalPlan } from '@currivia/schema';
+import type { ModulePlan, ModuleRecord, PersonalPlan } from '@currivia/schema';
 import { createContext } from 'react';
 
 export type PlanContextValue = {
@@ -10,6 +10,12 @@ export type PlanContextValue = {
   setPassed: (itemId: string) => void;
   resetOpen: (itemId: string) => void;
   saveModuleRecord: (record: ModuleRecord) => Promise<void>;
+  undoModulePlans: ModulePlan[] | null;
+  moveModule: (itemId: string, semesterId: string | null) => void;
+  undoLastMove: () => void;
+  confirmCurrentSemester: () => void;
+  confirmSpecialSemester: (semesterId: string) => void;
+  addSpecialSemester: (kind: 'regular' | 'vacation' | 'interruption') => void;
 };
 
 export const PlanContext = createContext<PlanContextValue | null>(null);

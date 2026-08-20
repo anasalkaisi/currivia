@@ -3,6 +3,11 @@ import type { MouseEvent } from 'react';
 
 import { content } from '../content';
 
+/**
+ * Provides the shared page structure for application content.
+ *
+ * @returns The application shell containing accessibility navigation, header, main content, and footer.
+ */
 export function AppShell({ children }: { children: ReactNode }) {
   const skipToMain = (event: MouseEvent<HTMLAnchorElement>) => {
     event.preventDefault();
@@ -36,7 +41,7 @@ export function AppShell({ children }: { children: ReactNode }) {
         </main>
         <footer className="site-footer">
           <p>{content.disclaimer}</p>
-          <p>Lokale S2-Entwicklung · keine öffentliche Alpha</p>
+          <p>Lokale S3-Entwicklung · keine öffentliche Alpha</p>
         </footer>
       </div>
     </>

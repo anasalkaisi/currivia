@@ -1,5 +1,9 @@
 import { describe, expect, it } from 'vitest';
-import { parseCurriculumConfig, parsePersonalPlan } from '@currivia/schema';
+import {
+  createDefaultSemesterAxis,
+  parseCurriculumConfig,
+  parsePersonalPlan,
+} from '@currivia/schema';
 
 import { evaluateTotalCredits } from './index';
 
@@ -106,4 +110,40 @@ describe('sumCredits', () => {
       );
     },
   );
+});
+
+describe('Semesterprognose', () => {
+  it('trennt BE-Ist von geplanter Prognose', async () => {
+    const axis = createDefaultSemesterAxis(
+      'sose-2025',
+      new Date('2026-08-20T12:00:00.000Z'),
+    );
+    const plan = parsePersonalPlan(
+      {
+        schemaVersion: 3,
+        regulationVersion: 'mi7-sose2025',
+        enrollmentSemester: 'sose-2025',
+        regulationConfirmedAt: '2026-08-19T12:00:00.000Z',
+        currentSemesterId: axis.currentSemesterId,
+        currentSemesterConfirmed: false,
+        semesters: axis.semesters,
+        moduleRecords: [],
+        modulePlans: [
+          {
+            curriculumItemId: 'hdm-mi7-113114',
+            semesterId: 'regular-3',
+            availability: 'confirmed',
+          },
+        ],
+      },
+      config,
+    );
+
+    const { evaluateForecastCredits } = await import('./index');
+    expect(evaluateForecastCredits(config, plan, 'regular-3')).toMatchObject({
+      currentHundredths: 0,
+      forecastHundredths: 500,
+      plannedItemIds: ['hdm-mi7-113114'],
+    });
+  });
 });

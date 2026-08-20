@@ -7,6 +7,12 @@ import { navigate } from '../routes';
 
 type Enrollment = 'sose-2025' | 'wise-2024-25';
 
+/**
+ * Configures the study planner for the user's enrollment period and regulation version.
+ *
+ * @param config - Curriculum and regulation data used to determine supported enrollment periods and source information
+ * @returns The onboarding interface for selecting and confirming the applicable regulation
+ */
 export function Onboarding({ config }: { config: CurriculumConfig }) {
   const { createPlan, plan } = usePlan();
   const [enrollment, setEnrollment] = useState<Enrollment>('sose-2025');
@@ -23,7 +29,7 @@ export function Onboarding({ config }: { config: CurriculumConfig }) {
   return (
     <div className="onboarding-layout">
       <section className="intro-panel" aria-labelledby="onboarding-title">
-        <div className="eyebrow">S2 · Lokaler Entwicklungsstand</div>
+        <div className="eyebrow">S3 · Lokaler Entwicklungsstand</div>
         <h1 id="onboarding-title">Deine SPO. Nachvollziehbar belegt.</h1>
         <p className="intro-copy">
           Erfasse offizielle Modulstatus und optionale Verlaufsdetails lokal,

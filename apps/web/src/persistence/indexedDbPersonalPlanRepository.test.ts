@@ -1,6 +1,10 @@
 import { openDB } from 'idb';
 import { describe, expect, it } from 'vitest';
-import { parseCurriculumConfig, type PersonalPlan } from '@currivia/schema';
+import {
+  createDefaultSemesterAxis,
+  parseCurriculumConfig,
+  type PersonalPlan,
+} from '@currivia/schema';
 
 import { IndexedDbPersonalPlanRepository } from './indexedDbPersonalPlanRepository';
 import { InvalidStoredPlanError } from './personalPlanRepository';
@@ -62,12 +66,27 @@ function repository() {
   return { name, value: new IndexedDbPersonalPlanRepository(config, name) };
 }
 
+const testAxis = createDefaultSemesterAxis(
+  'sose-2025',
+  new Date('2026-08-20T12:00:00.000Z'),
+);
+
 const emptyPlan: PersonalPlan = {
-  schemaVersion: 2,
+  schemaVersion: 3,
   regulationVersion: 'mi7-sose2025',
   enrollmentSemester: 'sose-2025',
   regulationConfirmedAt: '2026-08-19T12:00:00.000Z',
+  currentSemesterId: testAxis.currentSemesterId,
+  currentSemesterConfirmed: true,
+  semesters: testAxis.semesters,
   moduleRecords: [],
+  modulePlans: [
+    {
+      curriculumItemId: 'hdm-mi7-113114',
+      semesterId: 'regular-1',
+      availability: 'confirmed',
+    },
+  ],
 };
 
 describe('IndexedDB-Repository', () => {
@@ -104,7 +123,7 @@ describe('IndexedDB-Repository', () => {
     expect((await value.load())?.moduleRecords).toEqual([]);
   });
 
-  it('schreibt einen geladenen S1-Zustand unmittelbar als S2 zurück', async () => {
+  it('schreibt einen geladenen Alt-Zustand unmittelbar als S3 zurück', async () => {
     const { name, value } = repository();
     const database = await openDB(name, 1, {
       upgrade(db) {
@@ -127,15 +146,49 @@ describe('IndexedDB-Repository', () => {
     database.close();
 
     const loaded = await value.load();
-    expect(loaded?.schemaVersion).toBe(2);
+    expect(loaded?.schemaVersion).toBe(3);
     expect(loaded?.moduleRecords[0]?.semester).toBeUndefined();
 
     const check = await openDB(name, 1);
     expect(await check.get('personal-plan', 'active-plan')).toMatchObject({
-      schemaVersion: 2,
+      schemaVersion: 3,
       moduleRecords: [{ officialStatus: 'BE' }],
+      modulePlans: [{ curriculumItemId: 'hdm-mi7-113114' }],
     });
     check.close();
+  });
+
+  it('übernimmt einen S2-Verlauf in die getrennte S3-Planungszuordnung', async () => {
+    const { name, value } = repository();
+    const database = await openDB(name, 1, {
+      upgrade(db) {
+        db.createObjectStore('personal-plan');
+      },
+    });
+    await database.put(
+      'personal-plan',
+      {
+        schemaVersion: 2,
+        regulationVersion: 'mi7-sose2025',
+        enrollmentSemester: 'sose-2025',
+        regulationConfirmedAt: '2026-08-19T12:00:00.000Z',
+        moduleRecords: [
+          {
+            curriculumItemId: 'hdm-mi7-113114',
+            semester: 2,
+            officialStatus: 'BE',
+            componentRecords: [],
+          },
+        ],
+      },
+      'active-plan',
+    );
+    database.close();
+
+    const loaded = await value.load();
+    expect(loaded?.schemaVersion).toBe(3);
+    expect(loaded?.moduleRecords[0]?.semester).toBe(2);
+    expect(loaded?.modulePlans[0]?.semesterId).toBe('regular-2');
   });
 
   it('lehnt einen ungültigen gespeicherten Zustand sicher ab', async () => {

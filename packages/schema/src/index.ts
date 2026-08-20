@@ -120,17 +120,88 @@ const moduleRecordSchema = z.object({
   componentRecords: z.array(componentRecordSchema),
 });
 
-export const personalPlanSchema = z
+const enrollmentSemesterSchema = z
+  .string()
+  .regex(/^(sose-\d{4}|wise-\d{4}-\d{2})$/);
+
+const calendarSemesterSchema = z.object({
+  key: enrollmentSemesterSchema,
+  label: z.string().min(1),
+  source: z.enum(['derived', 'manual']),
+});
+
+export const planSemesterSchema = z.object({
+  id: z.string().min(1),
+  kind: z.enum(['regular', 'vacation', 'interruption']),
+  fachsemester: z.number().int().positive().optional(),
+  fachsemesterConfirmed: z.boolean(),
+  calendarSemester: calendarSemesterSchema,
+});
+
+export const modulePlanSchema = z.object({
+  curriculumItemId: z.string().min(1),
+  semesterId: z.string().min(1).nullable(),
+  availability: z.enum(['confirmed', 'unconfirmed']),
+  availabilityNote: z.string().max(500).optional(),
+});
+
+const personalPlanV3Schema = z
   .object({
-    schemaVersion: z.literal(2),
+    schemaVersion: z.literal(3),
     regulationVersion: z.literal('mi7-sose2025'),
-    enrollmentSemester: z.literal('sose-2025'),
+    enrollmentSemester: enrollmentSemesterSchema,
     regulationConfirmedAt: z.iso.datetime(),
+    currentSemesterId: z.string().min(1),
+    currentSemesterConfirmed: z.boolean(),
+    semesters: z.array(planSemesterSchema).min(1),
     moduleRecords: z.array(moduleRecordSchema),
+    modulePlans: z.array(modulePlanSchema),
   })
   .superRefine((plan, context) => {
-    const ids = plan.moduleRecords.map((record) => record.curriculumItemId);
-    if (new Set(ids).size !== ids.length) {
+    const semesterIds = new Set(plan.semesters.map((semester) => semester.id));
+    if (semesterIds.size !== plan.semesters.length) {
+      context.addIssue({
+        code: 'custom',
+        message: 'Semester-IDs müssen eindeutig sein.',
+        path: ['semesters'],
+      });
+    }
+    if (!semesterIds.has(plan.currentSemesterId)) {
+      context.addIssue({
+        code: 'custom',
+        message: 'Das aktuelle Semester ist unbekannt.',
+        path: ['currentSemesterId'],
+      });
+    }
+
+    const modulePlanIds = plan.modulePlans.map(
+      (modulePlan) => modulePlan.curriculumItemId,
+    );
+    if (new Set(modulePlanIds).size !== modulePlanIds.length) {
+      context.addIssue({
+        code: 'custom',
+        message: 'Ein Modul darf nur eine Planungszuordnung besitzen.',
+        path: ['modulePlans'],
+      });
+    }
+    for (const [index, modulePlan] of plan.modulePlans.entries()) {
+      if (
+        modulePlan.semesterId !== null &&
+        !semesterIds.has(modulePlan.semesterId)
+      ) {
+        context.addIssue({
+          code: 'custom',
+          message:
+            'Die Planungszuordnung verweist auf ein unbekanntes Semester.',
+          path: ['modulePlans', index, 'semesterId'],
+        });
+      }
+    }
+
+    const recordIds = plan.moduleRecords.map(
+      (record) => record.curriculumItemId,
+    );
+    if (new Set(recordIds).size !== recordIds.length) {
       context.addIssue({
         code: 'custom',
         message: 'Ein Modul darf nur einen Abschlussdatensatz besitzen.',
@@ -152,10 +223,20 @@ export const personalPlanSchema = z
     }
   });
 
-const legacyPersonalPlanSchema = z.object({
+export const personalPlanSchema = personalPlanV3Schema;
+
+const legacyPersonalPlanV2Schema = z.object({
+  schemaVersion: z.literal(2),
+  regulationVersion: z.literal('mi7-sose2025'),
+  enrollmentSemester: enrollmentSemesterSchema,
+  regulationConfirmedAt: z.iso.datetime(),
+  moduleRecords: z.array(moduleRecordSchema),
+});
+
+const legacyPersonalPlanV1Schema = z.object({
   schemaVersion: z.literal(1),
   regulationVersion: z.literal('mi7-sose2025'),
-  enrollmentSemester: z.literal('sose-2025'),
+  enrollmentSemester: enrollmentSemesterSchema,
   regulationConfirmedAt: z.iso.datetime(),
   completions: z.array(
     z.object({
@@ -167,43 +248,207 @@ const legacyPersonalPlanSchema = z.object({
 
 export type CurriculumConfig = z.infer<typeof curriculumConfigSchema>;
 export type CurriculumItem = CurriculumConfig['curriculumItems'][number];
-export type SumCreditsRequirement = CurriculumConfig['requirements'][number];
-export type PersonalPlan = z.infer<typeof personalPlanSchema>;
+export type SumCreditsRequirement = z.infer<typeof sumCreditsRequirementSchema>;
+export type PlanSemester = z.infer<typeof planSemesterSchema>;
+export type ModulePlan = z.infer<typeof modulePlanSchema>;
+export type PersonalPlan = z.infer<typeof personalPlanV3Schema>;
 export type ModuleRecord = PersonalPlan['moduleRecords'][number];
 export type OfficialStatus = z.infer<typeof officialStatusSchema>;
 
+/**
+ * Validates and parses a curriculum configuration.
+ *
+ * @param input - The value to validate as a curriculum configuration
+ * @returns The validated curriculum configuration
+ */
 export function parseCurriculumConfig(input: unknown): CurriculumConfig {
   return curriculumConfigSchema.parse(input);
 }
 
-export function parsePersonalPlan(
-  input: unknown,
-  config: CurriculumConfig,
-): PersonalPlan {
-  const legacy = legacyPersonalPlanSchema.safeParse(input);
-  const migrated = legacy.success
-    ? {
-        schemaVersion: 2 as const,
-        regulationVersion: legacy.data.regulationVersion,
-        enrollmentSemester: legacy.data.enrollmentSemester,
-        regulationConfirmedAt: legacy.data.regulationConfirmedAt,
-        moduleRecords: legacy.data.completions.map((completion) => ({
-          curriculumItemId: completion.curriculumItemId,
-          officialStatus: completion.officialStatus,
-          componentRecords: [],
-        })),
-      }
-    : input;
-  const plan = personalPlanSchema.parse(migrated);
-  const itemIds = new Set(config.curriculumItems.map((item) => item.id));
+type ParsedCalendarSemester = {
+  season: 'sose' | 'wise';
+  startYear: number;
+  key: string;
+  label: string;
+};
 
-  if (plan.regulationVersion !== config.regulationVersion) {
-    throw new Error(
-      'Der persönliche Zustand gehört zu einer anderen Regelgeneration.',
-    );
+/**
+ * Parses a calendar-semester key into its season, start year, key, and display label.
+ *
+ * @param key - A semester key in the format `sose-YYYY` or `wise-YYYY-YY`
+ * @returns The parsed calendar-semester details
+ * @throws An error if `key` does not match a supported semester-key format
+ */
+function parseCalendarSemester(key: string): ParsedCalendarSemester {
+  const soseMatch = /^sose-(\d{4})$/.exec(key);
+  if (soseMatch) {
+    const startYear = Number(soseMatch[1]);
+    return {
+      season: 'sose',
+      startYear,
+      key,
+      label: `SoSe ${startYear}`,
+    };
   }
 
-  for (const [recordIndex, record] of plan.moduleRecords.entries()) {
+  const wiseMatch = /^wise-(\d{4})-(\d{2})$/.exec(key);
+  if (wiseMatch) {
+    const startYear = Number(wiseMatch[1]);
+    return {
+      season: 'wise',
+      startYear,
+      key,
+      label: `WiSe ${startYear}/${wiseMatch[2]}`,
+    };
+  }
+
+  throw new Error(`Ungültiges Kalendersemester: ${key}`);
+}
+
+/**
+ * Gets the display label for a calendar semester key.
+ *
+ * @param key - A calendar semester key such as `sose-2025` or `wise-2025-26`
+ * @returns The display label for the calendar semester
+ */
+export function getCalendarSemesterLabel(key: string): string {
+  return parseCalendarSemester(key).label;
+}
+
+/**
+ * Computes the calendar semester that follows the specified semester.
+ *
+ * @param key - The semester key in `sose-YYYY` or `wise-YYYY-YY` format
+ * @returns The parsed following calendar semester
+ */
+function nextCalendarSemester(key: string): ParsedCalendarSemester {
+  const current = parseCalendarSemester(key);
+  if (current.season === 'sose') {
+    const startYear = current.startYear;
+    return parseCalendarSemester(
+      `wise-${startYear}-${String((startYear + 1) % 100).padStart(2, '0')}`,
+    );
+  }
+  return parseCalendarSemester(`sose-${current.startYear + 1}`);
+}
+
+/**
+ * Determines the key of the calendar semester following the specified semester.
+ *
+ * @param key - The calendar-semester key to advance
+ * @returns The key of the following calendar semester
+ */
+export function nextCalendarSemesterKey(key: string): string {
+  return nextCalendarSemester(key).key;
+}
+
+/**
+ * Determines the calendar semester containing a date.
+ *
+ * @param date - The date to map to a calendar semester
+ * @returns The corresponding summer-semester or winter-semester key
+ */
+function calendarSemesterForDate(date: Date): string {
+  const year = date.getFullYear();
+  // March through August is the summer-semester planning window.
+  if (date.getMonth() >= 2 && date.getMonth() <= 7) {
+    return `sose-${year}`;
+  }
+  const startYear = date.getMonth() < 2 ? year - 1 : year;
+  return `wise-${startYear}-${String((startYear + 1) % 100).padStart(2, '0')}`;
+}
+
+/**
+ * Creates a seven-semester study axis beginning with the enrollment semester.
+ *
+ * @param enrollmentSemester - The calendar semester in which enrollment begins.
+ * @param now - The date used to determine the current semester.
+ * @returns The generated regular semesters and the identifier of the current semester.
+ */
+export function createDefaultSemesterAxis(
+  enrollmentSemester: string,
+  now = new Date(),
+): { semesters: PlanSemester[]; currentSemesterId: string } {
+  let key = parseCalendarSemester(enrollmentSemester).key;
+  const semesters: PlanSemester[] = [];
+  for (let index = 1; index <= 7; index += 1) {
+    const calendar = parseCalendarSemester(key);
+    semesters.push({
+      id: `regular-${index}`,
+      kind: 'regular',
+      fachsemester: index,
+      fachsemesterConfirmed: true,
+      calendarSemester: {
+        key: calendar.key,
+        label: calendar.label,
+        source: 'derived',
+      },
+    });
+    key = nextCalendarSemester(key).key;
+  }
+
+  const currentKey = calendarSemesterForDate(now);
+  const currentIndex = semesters.findIndex(
+    (semester) => semester.calendarSemester.key === currentKey,
+  );
+  const currentSemesterId =
+    semesters[
+      currentIndex >= 0 ? currentIndex : currentKey < enrollmentSemester ? 0 : 6
+    ]?.id ?? semesters[0]!.id;
+
+  return { semesters, currentSemesterId };
+}
+
+/**
+ * Migrates a version 2 personal plan to the version 3 format.
+ *
+ * @param input - The version 2 personal plan to migrate
+ * @param config - The curriculum configuration used to create module plans
+ * @returns The migrated version 3 personal plan
+ */
+function migrateToV3(
+  input: z.infer<typeof legacyPersonalPlanV2Schema>,
+  config: CurriculumConfig,
+): z.infer<typeof personalPlanV3Schema> {
+  const axis = createDefaultSemesterAxis(input.enrollmentSemester);
+  return {
+    schemaVersion: 3,
+    regulationVersion: input.regulationVersion,
+    enrollmentSemester: input.enrollmentSemester,
+    regulationConfirmedAt: input.regulationConfirmedAt,
+    currentSemesterId: axis.currentSemesterId,
+    currentSemesterConfirmed: false,
+    semesters: axis.semesters,
+    moduleRecords: input.moduleRecords,
+    modulePlans: config.curriculumItems.map((item) => {
+      const record = input.moduleRecords.find(
+        (candidate) => candidate.curriculumItemId === item.id,
+      );
+      const preferredSemester = record?.semester ?? item.recommendedSemester;
+      const semesterId = `regular-${Math.min(7, Math.max(1, preferredSemester))}`;
+      return {
+        curriculumItemId: item.id,
+        semesterId,
+        availability: 'confirmed' as const,
+      };
+    }),
+  };
+}
+
+/**
+ * Validates curriculum item, assessment component, grade, and module planning references in a personal plan.
+ *
+ * @param plan - The personal plan to validate
+ * @param config - The curriculum configuration containing valid items, components, and grades
+ * @returns The validated personal plan
+ * @throws Error if the plan contains an unknown reference or a grade not allowed by the configuration
+ */
+function assertReferences(
+  plan: z.infer<typeof personalPlanV3Schema>,
+  config: CurriculumConfig,
+): PersonalPlan {
+  const itemIds = new Set(config.curriculumItems.map((item) => item.id));
+  for (const record of plan.moduleRecords) {
     if (!itemIds.has(record.curriculumItemId)) {
       throw new Error(
         `Unbekannte Modulreferenz im persönlichen Zustand: ${record.curriculumItemId}`,
@@ -227,10 +472,62 @@ export function parsePersonalPlan(
       !config.gradingScale.allowedHundredths.includes(record.gradeHundredths)
     ) {
       throw new Error(
-        `Ungültige Note im Moduldatensatz ${recordIndex + 1}: ${record.gradeHundredths}`,
+        `Ungültige Note im Moduldatensatz ${record.curriculumItemId}: ${record.gradeHundredths}`,
+      );
+    }
+  }
+
+  for (const modulePlan of plan.modulePlans) {
+    if (!itemIds.has(modulePlan.curriculumItemId)) {
+      throw new Error(
+        `Unbekannte Planungsreferenz im persönlichen Zustand: ${modulePlan.curriculumItemId}`,
       );
     }
   }
 
   return plan;
+}
+
+/**
+ * Parses a personal plan and migrates supported legacy formats to version 3.
+ *
+ * @param input - The personal plan data to parse.
+ * @param config - The curriculum configuration used to validate plan references.
+ * @returns A validated version-3 personal plan.
+ * @throws A validation error when the input does not match a supported plan format.
+ */
+export function parsePersonalPlan(
+  input: unknown,
+  config: CurriculumConfig,
+): PersonalPlan {
+  const current = personalPlanV3Schema.safeParse(input);
+  if (current.success) return assertReferences(current.data, config);
+
+  const legacyV2 = legacyPersonalPlanV2Schema.safeParse(input);
+  if (legacyV2.success) {
+    return assertReferences(migrateToV3(legacyV2.data, config), config);
+  }
+
+  const legacyV1 = legacyPersonalPlanV1Schema.safeParse(input);
+  if (legacyV1.success) {
+    return assertReferences(
+      migrateToV3(
+        {
+          schemaVersion: 2,
+          regulationVersion: legacyV1.data.regulationVersion,
+          enrollmentSemester: legacyV1.data.enrollmentSemester,
+          regulationConfirmedAt: legacyV1.data.regulationConfirmedAt,
+          moduleRecords: legacyV1.data.completions.map((completion) => ({
+            curriculumItemId: completion.curriculumItemId,
+            officialStatus: completion.officialStatus,
+            componentRecords: [],
+          })),
+        },
+        config,
+      ),
+      config,
+    );
+  }
+
+  throw current.error;
 }
