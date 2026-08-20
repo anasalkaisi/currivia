@@ -47,7 +47,7 @@ export class IndexedDbPersonalPlanRepository implements PersonalPlanRepository {
       typeof stored === 'object' &&
       stored !== null &&
       'schemaVersion' in stored &&
-      stored.schemaVersion === 1;
+      stored.schemaVersion !== 3;
     if (wasLegacyPlan) {
       try {
         await database.put(STORE_NAME, plan, ACTIVE_PLAN_KEY);

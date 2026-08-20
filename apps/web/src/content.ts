@@ -5,14 +5,14 @@ export const content = {
   productName: 'Studienverlaufsplaner',
   pilotLine: 'Pilotkonfiguration für Medieninformatik an der HdM',
   developmentWarning:
-    'Entwicklungs-Slice S2: Der Curriculumsdatensatz enthält weiterhin nur ein Modul und darf nicht für Studienentscheidungen verwendet werden.',
+    'Entwicklungs-Slice S3: Der Curriculumsdatensatz enthält weiterhin nur ein Modul und darf nicht für Studienentscheidungen verwendet werden.',
   disclaimer:
     'Currivia trifft keine verbindlichen Prüfungsentscheidungen und ersetzt keine Studienberatung.',
   unsupported:
     'Dieser Einschreibezeitraum gehört nicht zum bestätigten Geltungsbereich von mi7-sose2025. Ein persönlicher Planner wird nicht geöffnet.',
   invalidStorageTitle: 'Lokaler Zustand konnte nicht sicher geladen werden',
   invalidStorageBody:
-    'Die gespeicherten Daten passen nicht zum aktuellen S2-Schema. Sie wurden weder übernommen noch überschrieben.',
+    'Die gespeicherten Daten passen nicht zum aktuellen S3-Schema. Sie wurden weder übernommen noch überschrieben.',
 } as const;
 
 export const areaLabels = {

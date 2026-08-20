@@ -2,7 +2,7 @@ import { act, cleanup, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import axe from 'axe-core';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import type { PersonalPlan } from '@currivia/schema';
+import { createDefaultSemesterAxis, type PersonalPlan } from '@currivia/schema';
 
 import { App } from './App';
 import type { PersonalPlanRepository } from './persistence/personalPlanRepository';
@@ -39,6 +39,31 @@ class DeferredHistoryRepository extends MemoryRepository {
   }
 }
 
+const testAxis = createDefaultSemesterAxis(
+  'sose-2025',
+  new Date('2026-08-20T12:00:00.000Z'),
+);
+
+function testPlan(moduleRecords: PersonalPlan['moduleRecords']): PersonalPlan {
+  return {
+    schemaVersion: 3,
+    regulationVersion: 'mi7-sose2025',
+    enrollmentSemester: 'sose-2025',
+    regulationConfirmedAt: '2026-08-19T12:00:00.000Z',
+    currentSemesterId: testAxis.currentSemesterId,
+    currentSemesterConfirmed: true,
+    semesters: testAxis.semesters,
+    moduleRecords,
+    modulePlans: [
+      {
+        curriculumItemId: 'hdm-mi7-113114',
+        semesterId: 'regular-1',
+        availability: 'confirmed',
+      },
+    ],
+  };
+}
+
 beforeEach(() => {
   window.location.hash = '';
 });
@@ -65,6 +90,7 @@ describe('S1-Nutzerweg', () => {
     await user.click(openButton);
 
     expect(await screen.findByText('0 / 210 ECTS')).toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: /FS 1 SoSe 2025/ }));
     await user.click(
       screen.getByRole('button', { name: 'Als bestanden markieren' }),
     );
@@ -108,7 +134,7 @@ describe('S1-Nutzerweg', () => {
       screen.getByRole('checkbox', { name: /SPO-Version.*geprüft/i }),
     );
     await user.click(screen.getByRole('button', { name: /Plan öffnen/ }));
-    await screen.findByRole('heading', { name: '1. Fachsemester' });
+    await screen.findByRole('heading', { name: 'Semester für Semester.' });
     expect(
       (
         await axe.run(container, {
@@ -281,20 +307,16 @@ describe('S2-Erfassungsassistent', () => {
   });
 
   it('zeigt fehlende Bestandteildaten als nicht prüfbar', async () => {
-    const repository = new MemoryRepository({
-      schemaVersion: 2,
-      regulationVersion: 'mi7-sose2025',
-      enrollmentSemester: 'sose-2025',
-      regulationConfirmedAt: '2026-08-19T12:00:00.000Z',
-      moduleRecords: [
+    const repository = new MemoryRepository(
+      testPlan([
         {
           curriculumItemId: 'hdm-mi7-113114',
           semester: 1,
           officialStatus: 'AN',
           componentRecords: [],
         },
-      ],
-    });
+      ]),
+    );
     window.location.hash = '#/planner';
     render(<App repository={repository} />);
 
@@ -305,12 +327,8 @@ describe('S2-Erfassungsassistent', () => {
   });
 
   it('wertet einen Rücktritt nicht als Widerspruch zum Modulstatus', async () => {
-    const repository = new MemoryRepository({
-      schemaVersion: 2,
-      regulationVersion: 'mi7-sose2025',
-      enrollmentSemester: 'sose-2025',
-      regulationConfirmedAt: '2026-08-19T12:00:00.000Z',
-      moduleRecords: [
+    const repository = new MemoryRepository(
+      testPlan([
         {
           curriculumItemId: 'hdm-mi7-113114',
           semester: 1,
@@ -323,8 +341,8 @@ describe('S2-Erfassungsassistent', () => {
             },
           ],
         },
-      ],
-    });
+      ]),
+    );
     window.location.hash = '#/planner';
     render(<App repository={repository} />);
 
@@ -335,20 +353,16 @@ describe('S2-Erfassungsassistent', () => {
   });
 
   it('bietet bei einem erfassten Semester Bearbeiten statt Löschen an', async () => {
-    const repository = new MemoryRepository({
-      schemaVersion: 2,
-      regulationVersion: 'mi7-sose2025',
-      enrollmentSemester: 'sose-2025',
-      regulationConfirmedAt: '2026-08-19T12:00:00.000Z',
-      moduleRecords: [
+    const repository = new MemoryRepository(
+      testPlan([
         {
           curriculumItemId: 'hdm-mi7-113114',
           semester: 2,
           officialStatus: 'BE',
           componentRecords: [],
         },
-      ],
-    });
+      ]),
+    );
     window.location.hash = '#/planner';
     render(<App repository={repository} />);
 
@@ -363,12 +377,8 @@ describe('S2-Erfassungsassistent', () => {
   });
 
   it('zeigt ganzzahlige offizielle Noten mit einer Nachkommastelle', async () => {
-    const repository = new MemoryRepository({
-      schemaVersion: 2,
-      regulationVersion: 'mi7-sose2025',
-      enrollmentSemester: 'sose-2025',
-      regulationConfirmedAt: '2026-08-19T12:00:00.000Z',
-      moduleRecords: [
+    const repository = new MemoryRepository(
+      testPlan([
         {
           curriculumItemId: 'hdm-mi7-113114',
           semester: 1,
@@ -376,11 +386,70 @@ describe('S2-Erfassungsassistent', () => {
           gradeHundredths: 100,
           componentRecords: [],
         },
-      ],
-    });
+      ]),
+    );
     window.location.hash = '#/planner';
     render(<App repository={repository} />);
 
     expect(await screen.findByText('1,0')).toBeInTheDocument();
+  });
+});
+
+describe('S3-Semesterplanung', () => {
+  it('verschiebt ein Modul per Auswahl und macht die letzte Aktion rückgängig', async () => {
+    const user = userEvent.setup();
+    const repository = new MemoryRepository();
+    render(<App repository={repository} />);
+
+    await user.click(
+      await screen.findByRole('checkbox', { name: /SPO-Version.*geprüft/i }),
+    );
+    await user.click(screen.getByRole('button', { name: /Plan öffnen/ }));
+    await user.click(screen.getByRole('button', { name: /FS 1 SoSe 2025/ }));
+
+    const planningSelect = screen.getByLabelText('Planungssemester');
+    expect(planningSelect).toHaveValue('regular-1');
+    await user.selectOptions(planningSelect, 'regular-3');
+
+    expect(
+      screen.getByRole('button', { name: 'Rückgängig' }),
+    ).toBeInTheDocument();
+    await waitFor(() =>
+      expect(repository.stored?.modulePlans[0]?.semesterId).toBe('regular-3'),
+    );
+
+    await user.click(screen.getByRole('button', { name: 'Rückgängig' }));
+    expect(screen.getByLabelText('Planungssemester')).toHaveValue('regular-1');
+  });
+
+  it('ergänzt ein Sondersemester ohne Fachsemesterzählung', async () => {
+    const user = userEvent.setup();
+    render(<App repository={new MemoryRepository()} />);
+
+    await user.click(
+      await screen.findByRole('checkbox', { name: /SPO-Version.*geprüft/i }),
+    );
+    await user.click(screen.getByRole('button', { name: /Plan öffnen/ }));
+    await user.click(screen.getByRole('button', { name: '+ Urlaubssemester' }));
+
+    const specialSemester = screen.getByRole('button', {
+      name: /Sondersemester WiSe 2028\/29/,
+    });
+    expect(specialSemester).toBeInTheDocument();
+    await user.click(specialSemester);
+    expect(
+      screen.getByRole('heading', { name: 'WiSe 2028/29' }),
+    ).toBeInTheDocument();
+    expect(screen.getByText('Urlaubssemester')).toBeInTheDocument();
+    await user.click(
+      screen.getByRole('button', {
+        name: 'Fachsemesterzählung bestätigen',
+      }),
+    );
+    expect(
+      screen.queryByRole('button', {
+        name: 'Fachsemesterzählung bestätigen',
+      }),
+    ).not.toBeInTheDocument();
   });
 });

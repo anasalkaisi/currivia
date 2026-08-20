@@ -1,7 +1,14 @@
 import type {
   CurriculumConfig,
+  ModulePlan,
   ModuleRecord,
+  PlanSemester,
   PersonalPlan,
+} from '@currivia/schema';
+import {
+  createDefaultSemesterAxis,
+  getCalendarSemesterLabel,
+  nextCalendarSemesterKey,
 } from '@currivia/schema';
 import {
   type ReactNode,
@@ -23,6 +30,7 @@ type State = {
   plan: PersonalPlan | null;
   saveState: SaveState;
   revision: number;
+  undoModulePlans: ModulePlan[] | null;
 };
 
 type Action =
@@ -32,6 +40,11 @@ type Action =
   | { type: 'setPassed'; itemId: string }
   | { type: 'resetOpen'; itemId: string }
   | { type: 'saveModuleRecord'; record: ModuleRecord }
+  | { type: 'moveModule'; itemId: string; semesterId: string | null }
+  | { type: 'undoMove' }
+  | { type: 'confirmCurrentSemester' }
+  | { type: 'confirmSpecialSemester'; semesterId: string }
+  | { type: 'addSpecialSemester'; kind: PlanSemester['kind'] }
   | { type: 'saving' }
   | { type: 'saved' }
   | { type: 'saveFailed' };
@@ -41,6 +54,7 @@ const initialState: State = {
   plan: null,
   saveState: 'idle',
   revision: 0,
+  undoModulePlans: null,
 };
 
 function reducer(state: State, action: Action): State {
@@ -111,6 +125,93 @@ function reducer(state: State, action: Action): State {
       return {
         ...state,
         plan: { ...state.plan, moduleRecords },
+        saveState: 'saving',
+        revision: state.revision + 1,
+      };
+    }
+    case 'moveModule': {
+      if (!state.plan) return state;
+      const existing = state.plan.modulePlans.find(
+        (modulePlan) => modulePlan.curriculumItemId === action.itemId,
+      );
+      const currentPlans = state.plan.modulePlans;
+      const nextPlan: ModulePlan = existing
+        ? { ...existing, semesterId: action.semesterId }
+        : {
+            curriculumItemId: action.itemId,
+            semesterId: action.semesterId,
+            availability: 'confirmed',
+          };
+      const modulePlans = existing
+        ? currentPlans.map((modulePlan) =>
+            modulePlan.curriculumItemId === action.itemId
+              ? nextPlan
+              : modulePlan,
+          )
+        : [...currentPlans, nextPlan];
+      return {
+        ...state,
+        plan: { ...state.plan, modulePlans },
+        undoModulePlans: structuredClone(currentPlans),
+        saveState: 'saving',
+        revision: state.revision + 1,
+      };
+    }
+    case 'undoMove':
+      if (!state.plan || !state.undoModulePlans) return state;
+      return {
+        ...state,
+        plan: { ...state.plan, modulePlans: state.undoModulePlans },
+        undoModulePlans: null,
+        saveState: 'saving',
+        revision: state.revision + 1,
+      };
+    case 'confirmCurrentSemester':
+      if (!state.plan) return state;
+      return {
+        ...state,
+        plan: { ...state.plan, currentSemesterConfirmed: true },
+        saveState: 'saving',
+        revision: state.revision + 1,
+      };
+    case 'confirmSpecialSemester':
+      if (!state.plan) return state;
+      return {
+        ...state,
+        plan: {
+          ...state.plan,
+          semesters: state.plan.semesters.map((semester) =>
+            semester.id === action.semesterId
+              ? { ...semester, fachsemesterConfirmed: true }
+              : semester,
+          ),
+        },
+        saveState: 'saving',
+        revision: state.revision + 1,
+      };
+    case 'addSpecialSemester': {
+      if (!state.plan) return state;
+      const lastSemester = state.plan.semesters.at(-1);
+      if (!lastSemester) return state;
+      const nextKey = nextCalendarSemesterKey(
+        lastSemester.calendarSemester.key,
+      );
+      const newSemester: PlanSemester = {
+        id: `${action.kind}-${state.plan.semesters.length + 1}`,
+        kind: action.kind,
+        fachsemesterConfirmed: false,
+        calendarSemester: {
+          key: nextKey,
+          label: getCalendarSemesterLabel(nextKey),
+          source: 'derived',
+        },
+      };
+      return {
+        ...state,
+        plan: {
+          ...state.plan,
+          semesters: [...state.plan.semesters, newSemester],
+        },
         saveState: 'saving',
         revision: state.revision + 1,
       };
@@ -192,14 +293,23 @@ export function PlanProvider({
   }, [repository, state.plan, state.revision]);
 
   const createPlan = useCallback(() => {
+    const axis = createDefaultSemesterAxis(config.applicability.enrollmentFrom);
     dispatch({
       type: 'created',
       plan: {
-        schemaVersion: 2,
+        schemaVersion: 3,
         regulationVersion: config.regulationVersion,
         enrollmentSemester: config.applicability.enrollmentFrom,
         regulationConfirmedAt: new Date().toISOString(),
+        currentSemesterId: axis.currentSemesterId,
+        currentSemesterConfirmed: false,
+        semesters: axis.semesters,
         moduleRecords: [],
+        modulePlans: config.curriculumItems.map((item) => ({
+          curriculumItemId: item.id,
+          semesterId: `regular-${Math.min(7, item.recommendedSemester)}`,
+          availability: 'confirmed' as const,
+        })),
       },
     });
   }, [config]);
@@ -222,6 +332,29 @@ export function PlanProvider({
     return completion;
   }, []);
 
+  const moveModule = useCallback(
+    (itemId: string, semesterId: string | null) => {
+      dispatch({ type: 'moveModule', itemId, semesterId });
+    },
+    [],
+  );
+
+  const undoLastMove = useCallback(() => {
+    dispatch({ type: 'undoMove' });
+  }, []);
+
+  const confirmCurrentSemester = useCallback(() => {
+    dispatch({ type: 'confirmCurrentSemester' });
+  }, []);
+
+  const confirmSpecialSemester = useCallback((semesterId: string) => {
+    dispatch({ type: 'confirmSpecialSemester', semesterId });
+  }, []);
+
+  const addSpecialSemester = useCallback((kind: PlanSemester['kind']) => {
+    dispatch({ type: 'addSpecialSemester', kind });
+  }, []);
+
   const value = useMemo(
     () => ({
       ...state,
@@ -229,8 +362,24 @@ export function PlanProvider({
       setPassed,
       resetOpen,
       saveModuleRecord,
+      moveModule,
+      undoLastMove,
+      confirmCurrentSemester,
+      confirmSpecialSemester,
+      addSpecialSemester,
     }),
-    [state, createPlan, setPassed, resetOpen, saveModuleRecord],
+    [
+      state,
+      createPlan,
+      setPassed,
+      resetOpen,
+      saveModuleRecord,
+      moveModule,
+      undoLastMove,
+      confirmCurrentSemester,
+      confirmSpecialSemester,
+      addSpecialSemester,
+    ],
   );
 
   return <PlanContext.Provider value={value}>{children}</PlanContext.Provider>;

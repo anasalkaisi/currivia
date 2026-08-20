@@ -14,6 +14,13 @@ export type SumCreditsResult = {
   sourceRefs: string[];
 };
 
+export type ForecastCreditsResult = {
+  targetSemesterId: string;
+  currentHundredths: number;
+  forecastHundredths: number;
+  plannedItemIds: string[];
+};
+
 export function evaluateSumCredits(
   requirement: SumCreditsRequirement,
   config: CurriculumConfig,
@@ -59,4 +66,62 @@ export function evaluateTotalCredits(
   }
 
   return evaluateSumCredits(requirement, config, plan);
+}
+
+/**
+ * Returns a deliberately small S3 forecast: all planned or registered
+ * modules up to the selected semester are treated as passed hypothetically.
+ * Official BE records remain the only source for the Ist value.
+ */
+export function evaluateForecastCredits(
+  config: CurriculumConfig,
+  plan: PersonalPlan,
+  targetSemesterId: string,
+): ForecastCreditsResult {
+  const targetIndex = plan.semesters.findIndex(
+    (semester) => semester.id === targetSemesterId,
+  );
+  if (targetIndex < 0) {
+    throw new Error(`Unbekanntes Zielsemester: ${targetSemesterId}`);
+  }
+
+  const semesterIndex = new Map(
+    plan.semesters.map((semester, index) => [semester.id, index]),
+  );
+  const records = new Map(
+    plan.moduleRecords.map((record) => [record.curriculumItemId, record]),
+  );
+  const current = evaluateTotalCredits(config, plan).currentHundredths;
+  const plannedItemIds: string[] = [];
+  let forecast = 0;
+
+  for (const item of config.curriculumItems) {
+    const record = records.get(item.id);
+    if (record?.officialStatus === 'BE') {
+      forecast += item.creditsHundredths;
+      continue;
+    }
+
+    const assignment = plan.modulePlans.find(
+      (modulePlan) => modulePlan.curriculumItemId === item.id,
+    );
+    const assignmentIndex = assignment?.semesterId
+      ? semesterIndex.get(assignment.semesterId)
+      : undefined;
+    if (
+      assignmentIndex !== undefined &&
+      assignmentIndex <= targetIndex &&
+      (record === undefined || record.officialStatus === 'AN')
+    ) {
+      forecast += item.creditsHundredths;
+      plannedItemIds.push(item.id);
+    }
+  }
+
+  return {
+    targetSemesterId,
+    currentHundredths: current,
+    forecastHundredths: forecast,
+    plannedItemIds,
+  };
 }

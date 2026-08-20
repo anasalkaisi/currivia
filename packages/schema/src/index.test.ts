@@ -4,6 +4,7 @@ import {
   parseCurriculumConfig,
   parsePersonalPlan,
   personalPlanSchema,
+  createDefaultSemesterAxis,
 } from './index';
 
 const validConfig = {
@@ -89,12 +90,26 @@ describe('Curriculumsschema', () => {
 });
 
 describe('persönliches Schema', () => {
+  const axis = createDefaultSemesterAxis(
+    'sose-2025',
+    new Date('2026-08-20T12:00:00.000Z'),
+  );
   const plan = {
-    schemaVersion: 2,
+    schemaVersion: 3,
     regulationVersion: 'mi7-sose2025',
     enrollmentSemester: 'sose-2025',
     regulationConfirmedAt: '2026-08-19T12:00:00.000Z',
+    currentSemesterId: axis.currentSemesterId,
+    currentSemesterConfirmed: true,
+    semesters: axis.semesters,
     moduleRecords: [],
+    modulePlans: [
+      {
+        curriculumItemId: 'hdm-mi7-113114',
+        semesterId: 'regular-1',
+        availability: 'confirmed',
+      },
+    ],
   } as const;
 
   it('enthält keine duplizierten offiziellen Moduldaten', () => {
@@ -118,7 +133,7 @@ describe('persönliches Schema', () => {
       config,
     );
     expect(migrated).toMatchObject({
-      schemaVersion: 2,
+      schemaVersion: 3,
       moduleRecords: [
         {
           curriculumItemId: 'hdm-mi7-113114',

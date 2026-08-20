@@ -23,7 +23,7 @@ export function Onboarding({ config }: { config: CurriculumConfig }) {
   return (
     <div className="onboarding-layout">
       <section className="intro-panel" aria-labelledby="onboarding-title">
-        <div className="eyebrow">S2 · Lokaler Entwicklungsstand</div>
+        <div className="eyebrow">S3 · Lokaler Entwicklungsstand</div>
         <h1 id="onboarding-title">Deine SPO. Nachvollziehbar belegt.</h1>
         <p className="intro-copy">
           Erfasse offizielle Modulstatus und optionale Verlaufsdetails lokal,

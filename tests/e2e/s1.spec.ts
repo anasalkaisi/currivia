@@ -19,6 +19,7 @@ test('S1: SPO bestätigen, BE speichern, neu laden und Quelle prüfen', async ({
 
   await expect(page).toHaveURL(/#\/planner$/);
   await expect(page.getByText('0 / 210 ECTS')).toBeVisible();
+  await page.getByRole('button', { name: /FS 1 SoSe 2025/ }).click();
   await expect(
     page.getByText(/Curriculumsdatensatz enthält weiterhin nur ein Modul/),
   ).toBeVisible();
@@ -30,14 +31,14 @@ test('S1: SPO bestätigen, BE speichern, neu laden und Quelle prüfen', async ({
   await expect(page.locator('#main-content')).toBeFocused();
 
   await page.getByRole('button', { name: 'Als bestanden markieren' }).click();
-  await expect(page.getByText('5 / 210 ECTS')).toBeVisible();
+  await expect(page.getByText('5 / 210 ECTS', { exact: true })).toBeVisible();
   await expect(page.getByText(/Bestanden \(BE\)/)).toBeVisible();
   await expect(
     page.getByText('Lokal gespeichert', { exact: true }),
   ).toBeVisible();
 
   await page.reload();
-  await expect(page.getByText('5 / 210 ECTS')).toBeVisible();
+  await expect(page.getByText('5 / 210 ECTS', { exact: true })).toBeVisible();
   await expect(page.getByText(/Bestanden \(BE\)/)).toBeVisible();
 
   await page.getByRole('link', { name: /Quelle anzeigen/ }).click();
@@ -58,6 +59,7 @@ test('S1: BE lässt sich wieder auf offen zurücksetzen', async ({ page }) => {
   await page.goto('/#/onboarding');
   await page.getByRole('checkbox', { name: /SPO-Version.*geprüft/i }).check();
   await page.getByRole('button', { name: /Plan öffnen/ }).click();
+  await page.getByRole('button', { name: /FS 1 SoSe 2025/ }).click();
   await page.getByRole('button', { name: 'Als bestanden markieren' }).click();
   await page.getByRole('button', { name: /Auf „offen“ zurücksetzen/ }).click();
 
