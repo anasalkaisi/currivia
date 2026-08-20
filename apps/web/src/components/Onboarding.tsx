@@ -7,6 +7,12 @@ import { navigate } from '../routes';
 
 type Enrollment = 'sose-2025' | 'wise-2024-25';
 
+/**
+ * Configures the study planner for the user's enrollment period and regulation version.
+ *
+ * @param config - Curriculum and regulation data used to determine supported enrollment periods and source information
+ * @returns The onboarding interface for selecting and confirming the applicable regulation
+ */
 export function Onboarding({ config }: { config: CurriculumConfig }) {
   const { createPlan, plan } = usePlan();
   const [enrollment, setEnrollment] = useState<Enrollment>('sose-2025');

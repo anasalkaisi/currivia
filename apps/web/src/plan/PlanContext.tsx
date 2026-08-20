@@ -57,6 +57,13 @@ const initialState: State = {
   undoModulePlans: null,
 };
 
+/**
+ * Applies a plan-management action to produce the next provider state.
+ *
+ * @param state - The current plan, load, save, and undo state
+ * @param action - The state transition to apply
+ * @returns The updated provider state
+ */
 function reducer(state: State, action: Action): State {
   switch (action.type) {
     case 'loaded':
@@ -225,6 +232,11 @@ function reducer(state: State, action: Action): State {
   }
 }
 
+/**
+ * Provides personal plan state and operations through React context.
+ *
+ * @param config - Curriculum and regulation data used to create new plans
+ */
 export function PlanProvider({
   config,
   repository,

@@ -255,6 +255,12 @@ export type PersonalPlan = z.infer<typeof personalPlanV3Schema>;
 export type ModuleRecord = PersonalPlan['moduleRecords'][number];
 export type OfficialStatus = z.infer<typeof officialStatusSchema>;
 
+/**
+ * Validates and parses a curriculum configuration.
+ *
+ * @param input - The value to validate as a curriculum configuration
+ * @returns The validated curriculum configuration
+ */
 export function parseCurriculumConfig(input: unknown): CurriculumConfig {
   return curriculumConfigSchema.parse(input);
 }
@@ -266,6 +272,13 @@ type ParsedCalendarSemester = {
   label: string;
 };
 
+/**
+ * Parses a calendar-semester key into its season, start year, key, and display label.
+ *
+ * @param key - A semester key in the format `sose-YYYY` or `wise-YYYY-YY`
+ * @returns The parsed calendar-semester details
+ * @throws An error if `key` does not match a supported semester-key format
+ */
 function parseCalendarSemester(key: string): ParsedCalendarSemester {
   const soseMatch = /^sose-(\d{4})$/.exec(key);
   if (soseMatch) {
@@ -292,10 +305,22 @@ function parseCalendarSemester(key: string): ParsedCalendarSemester {
   throw new Error(`Ungültiges Kalendersemester: ${key}`);
 }
 
+/**
+ * Gets the display label for a calendar semester key.
+ *
+ * @param key - A calendar semester key such as `sose-2025` or `wise-2025-26`
+ * @returns The display label for the calendar semester
+ */
 export function getCalendarSemesterLabel(key: string): string {
   return parseCalendarSemester(key).label;
 }
 
+/**
+ * Computes the calendar semester that follows the specified semester.
+ *
+ * @param key - The semester key in `sose-YYYY` or `wise-YYYY-YY` format
+ * @returns The parsed following calendar semester
+ */
 function nextCalendarSemester(key: string): ParsedCalendarSemester {
   const current = parseCalendarSemester(key);
   if (current.season === 'sose') {
@@ -307,10 +332,22 @@ function nextCalendarSemester(key: string): ParsedCalendarSemester {
   return parseCalendarSemester(`sose-${current.startYear + 1}`);
 }
 
+/**
+ * Determines the key of the calendar semester following the specified semester.
+ *
+ * @param key - The calendar-semester key to advance
+ * @returns The key of the following calendar semester
+ */
 export function nextCalendarSemesterKey(key: string): string {
   return nextCalendarSemester(key).key;
 }
 
+/**
+ * Determines the calendar semester containing a date.
+ *
+ * @param date - The date to map to a calendar semester
+ * @returns The corresponding summer-semester or winter-semester key
+ */
 function calendarSemesterForDate(date: Date): string {
   const year = date.getFullYear();
   // March through August is the summer-semester planning window.
@@ -321,6 +358,13 @@ function calendarSemesterForDate(date: Date): string {
   return `wise-${startYear}-${String((startYear + 1) % 100).padStart(2, '0')}`;
 }
 
+/**
+ * Creates a seven-semester study axis beginning with the enrollment semester.
+ *
+ * @param enrollmentSemester - The calendar semester in which enrollment begins.
+ * @param now - The date used to determine the current semester.
+ * @returns The generated regular semesters and the identifier of the current semester.
+ */
 export function createDefaultSemesterAxis(
   enrollmentSemester: string,
   now = new Date(),
@@ -355,6 +399,13 @@ export function createDefaultSemesterAxis(
   return { semesters, currentSemesterId };
 }
 
+/**
+ * Migrates a version 2 personal plan to the version 3 format.
+ *
+ * @param input - The version 2 personal plan to migrate
+ * @param config - The curriculum configuration used to create module plans
+ * @returns The migrated version 3 personal plan
+ */
 function migrateToV3(
   input: z.infer<typeof legacyPersonalPlanV2Schema>,
   config: CurriculumConfig,
@@ -384,6 +435,14 @@ function migrateToV3(
   };
 }
 
+/**
+ * Validates curriculum item, assessment component, grade, and module planning references in a personal plan.
+ *
+ * @param plan - The personal plan to validate
+ * @param config - The curriculum configuration containing valid items, components, and grades
+ * @returns The validated personal plan
+ * @throws Error if the plan contains an unknown reference or a grade not allowed by the configuration
+ */
 function assertReferences(
   plan: z.infer<typeof personalPlanV3Schema>,
   config: CurriculumConfig,
@@ -429,6 +488,14 @@ function assertReferences(
   return plan;
 }
 
+/**
+ * Parses a personal plan and migrates supported legacy formats to version 3.
+ *
+ * @param input - The personal plan data to parse.
+ * @param config - The curriculum configuration used to validate plan references.
+ * @returns A validated version-3 personal plan.
+ * @throws A validation error when the input does not match a supported plan format.
+ */
 export function parsePersonalPlan(
   input: unknown,
   config: CurriculumConfig,

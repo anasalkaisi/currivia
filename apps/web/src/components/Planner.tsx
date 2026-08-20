@@ -11,6 +11,12 @@ import { areaLabels, content, statusOptions } from '../content';
 import { formatGrade } from '../format';
 import { usePlan } from '../plan/usePlan';
 
+/**
+ * Formats a credit value expressed in hundredths using German number formatting.
+ *
+ * @param hundredths - The credit value multiplied by 100
+ * @returns The formatted credit value
+ */
 function formatCredits(hundredths: number): string {
   return new Intl.NumberFormat('de-DE', {
     maximumFractionDigits: 2,
@@ -21,12 +27,23 @@ function semesterLabel(semester: PlanSemester): string {
   return semester.calendarSemester.label;
 }
 
+/**
+ * Converts a semester kind into its display label.
+ *
+ * @param kind - The semester kind to label.
+ * @returns The localized label for the semester kind.
+ */
 function kindLabel(kind: PlanSemester['kind']): string {
   if (kind === 'vacation') return 'Urlaubssemester';
   if (kind === 'interruption') return 'Unterbrechungssemester';
   return 'Reguläres Fachsemester';
 }
 
+/**
+ * Renders the semester-based curriculum planner.
+ *
+ * @param config - Curriculum configuration used to display the planned module and credit progress
+ */
 export function Planner({ config }: { config: CurriculumConfig }) {
   const {
     plan,
@@ -347,6 +364,27 @@ export function Planner({ config }: { config: CurriculumConfig }) {
   );
 }
 
+/**
+ * Renders a semester card with its identity, planning controls, and assigned module details.
+ *
+ * @param semester - The semester represented by the card
+ * @param isFocused - Whether the semester is currently focused
+ * @param item - The curriculum item being planned
+ * @param record - The module's official record, if available
+ * @param modulePlan - The module's planning assignment, if available
+ * @param status - The module's displayed status
+ * @param component - The recorded assessment component, if available
+ * @param componentStatus - The assessment component's displayed status
+ * @param hasContradiction - Whether the module and component statuses conflict
+ * @param hasDetailedRecord - Whether detailed official history exists
+ * @param saveState - The current local-save state
+ * @param semesters - The semesters available for planning
+ * @param onMove - Moves or unassigns the module
+ * @param onSetPassed - Marks the module as passed
+ * @param onResetOpen - Resets a minimally recorded passed module to open
+ * @param onFocus - Focuses a semester
+ * @param onConfirmSpecialSemester - Confirms the special semester's classification
+ */
 function SemesterCard({
   semester,
   isFocused,
