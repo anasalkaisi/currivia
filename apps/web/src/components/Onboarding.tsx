@@ -23,11 +23,11 @@ export function Onboarding({ config }: { config: CurriculumConfig }) {
   return (
     <div className="onboarding-layout">
       <section className="intro-panel" aria-labelledby="onboarding-title">
-        <div className="eyebrow">S1 · Lokaler Entwicklungsstand</div>
+        <div className="eyebrow">S2 · Lokaler Entwicklungsstand</div>
         <h1 id="onboarding-title">Deine SPO. Nachvollziehbar belegt.</h1>
         <p className="intro-copy">
-          Dieser erste Currivia-Weg verbindet eine offizielle Quelle mit genau
-          einem persönlichen, lokal gespeicherten Status.
+          Erfasse offizielle Modulstatus und optionale Verlaufsdetails lokal,
+          ohne automatische Rechtsauslegung.
         </p>
         <dl className="trust-list">
           <div>
@@ -36,7 +36,7 @@ export function Onboarding({ config }: { config: CurriculumConfig }) {
           </div>
           <div>
             <dt>Datenumfang</dt>
-            <dd>Keine Namen, Noten oder Matrikelnummern</dd>
+            <dd>Keine Namen oder Matrikelnummern; Noten nur optional</dd>
           </div>
           <div>
             <dt>Regelstatus</dt>

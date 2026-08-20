@@ -20,11 +20,9 @@ export function evaluateSumCredits(
   plan: PersonalPlan,
 ): SumCreditsResult {
   const passedIds = new Set(
-    plan.completions
-      .filter(
-        (completion) => completion.officialStatus === requirement.creditStatus,
-      )
-      .map((completion) => completion.curriculumItemId),
+    plan.moduleRecords
+      .filter((record) => record.officialStatus === requirement.creditStatus)
+      .map((record) => record.curriculumItemId),
   );
   const contributingItems = config.curriculumItems.filter((item) =>
     passedIds.has(item.id),

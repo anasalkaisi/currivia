@@ -1,7 +1,7 @@
 # Currivia: AI-native Delivery-Plan
 
 **Stand:** 19. August 2026
-**Phase:** 5 – S1 implementierungsbereit
+**Phase:** S2 in Review
 **Scope:** `v0.1.0-alpha.x`
 **Produktvertrag:** [mvp-specification.de.md](./mvp-specification.de.md)
 
@@ -28,15 +28,17 @@ Abgeschlossen:
 - verbindliche MVP-Spezifikation
 - schlankes Specification Gate
 - grobe Slice Map für den gesamten MVP
-- detaillierte und menschlich bestätigte S1-Spezifikation
-- GitHub-Issue [#1](https://github.com/anasalkaisi/currivia/issues/1) auf `Ready`
+- S1 vollständig implementiert und technisch verifiziert
+- S2 detailliert, implementiert und technisch verifiziert
+- S1 über Pull Request #2 gemergt
+- S2-Recap, Issue #3 und Review-Branch
 
 Als Nächstes:
 
-1. Planungsstand auf einem kleinen Branch sichern
-2. Slice 1 anhand von Issue [#1](https://github.com/anasalkaisi/currivia/issues/1) als kleinen Pull Request umsetzen
-3. verifizieren, menschlich abnehmen, recapitulieren und refaktorieren
-4. erst danach Slice 2 anhand der Erkenntnisse aus S1 detaillieren
+1. S2 fachlich und visuell menschlich abnehmen
+2. unabhängige Zweitprüfung der verwendeten offiziellen Quellen abschließen
+3. S2-Draft-PR prüfen und Review abschließen
+4. S2 mergen und erst danach S3 detaillieren
 
 ## 3. Arbeitsprinzip
 
@@ -543,12 +545,10 @@ Das Repository soll deshalb zeigen:
 
 ## 17. Nächste konkrete Aktion
 
-S1 ist implementierungsbereit. Die nächste Arbeitssitzung:
+S2 ist implementiert und technisch verifiziert. Die nächste Arbeitssitzung:
 
-1. liest den kompakten [Projektstatus](./current-state.de.md) und die dort genannten Quellen,
-2. sichert die Planungsartefakte auf einem kleinen Branch,
-3. setzt Issue [#1](https://github.com/anasalkaisi/currivia/issues/1) auf `In Progress`,
-4. implementiert ausschließlich den in [S1](../slices/s1-ects-walking-skeleton.de.md) beschriebenen vertikalen Weg und
-5. eröffnet nach vollständiger Verifikation einen kleinen Pull Request zur menschlichen Abnahme.
-
-S2 bleibt bis zum S1-Recap auf Ebene der groben Slice Map.
+1. liest den kompakten [Projektstatus](./current-state.de.md), die [S2-Spezifikation](../slices/s2-study-history.de.md) und den [S2-Recap](../slices/s2-recap.de.md),
+2. prüft Statussemantik, S1→S2-Migration und den vollständigen Erfassungsweg,
+3. führt die menschliche fachliche und visuelle Abnahme durch,
+4. prüft den S2-Draft-PR gegen den gemergten S1-Stand und
+5. beginnt erst nach abgeschlossenem S2-Review mit der Detailplanung von S3.

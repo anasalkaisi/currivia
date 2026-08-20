@@ -3,11 +3,16 @@ import { useEffect, useState } from 'react';
 export type Route =
   | { name: 'onboarding' }
   | { name: 'planner' }
+  | { name: 'history' }
   | { name: 'source'; itemId: string };
 
 export function readRoute(hash = window.location.hash): Route {
   if (hash === '#/planner') {
     return { name: 'planner' };
+  }
+
+  if (hash === '#/history') {
+    return { name: 'history' };
   }
 
   const sourceMatch = /^#\/sources\/([^/]+)$/.exec(hash);
@@ -22,7 +27,11 @@ export function useRoute(): Route {
   const [route, setRoute] = useState<Route>(() => readRoute());
 
   useEffect(() => {
-    const handleHashChange = () => setRoute(readRoute());
+    const handleHashChange = () => {
+      document.documentElement.scrollTop = 0;
+      document.body.scrollTop = 0;
+      setRoute(readRoute());
+    };
     window.addEventListener('hashchange', handleHashChange);
     return () => window.removeEventListener('hashchange', handleHashChange);
   }, []);

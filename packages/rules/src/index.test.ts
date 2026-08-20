@@ -11,6 +11,9 @@ const config = parseCurriculumConfig({
     program: 'medieninformatik-bachelor',
     enrollmentFrom: 'sose-2025',
   },
+  gradingScale: {
+    allowedHundredths: [100, 130, 170, 200, 230, 270, 300, 330, 370, 400, 500],
+  },
   sources: [
     {
       id: 'Q-SPO-2025',
@@ -31,7 +34,12 @@ const config = parseCurriculumConfig({
       area: 'basic-compulsory',
       recommendedSemester: 1,
       creditsHundredths: 500,
-      assessment: { type: 'written-exam', minutes: 60 },
+      assessment: {
+        id: 'hdm-mi7-113114-written-exam',
+        title: { de: 'Schriftliche Prüfung' },
+        type: 'written-exam',
+        minutes: 60,
+      },
       prerequisites: 'none',
       sourceRefs: ['Q-SPO-2025'],
     },
@@ -47,16 +55,23 @@ const config = parseCurriculumConfig({
   ],
 });
 
-function plan(
-  completions: { curriculumItemId: string; officialStatus: 'BE' }[],
-) {
+function plan(officialStatus?: 'AN' | 'BE' | 'NB' | 'EN' | 'RT') {
   return parsePersonalPlan(
     {
-      schemaVersion: 1,
+      schemaVersion: 2,
       regulationVersion: 'mi7-sose2025',
       enrollmentSemester: 'sose-2025',
       regulationConfirmedAt: '2026-08-19T12:00:00.000Z',
-      completions,
+      moduleRecords: officialStatus
+        ? [
+            {
+              curriculumItemId: 'hdm-mi7-113114',
+              semester: 1,
+              officialStatus,
+              componentRecords: [],
+            },
+          ]
+        : [],
     },
     config,
   );
@@ -64,7 +79,7 @@ function plan(
 
 describe('sumCredits', () => {
   it('liefert ohne Abschlussdatensatz 0 Hundertstel-ECTS', () => {
-    const result = evaluateTotalCredits(config, plan([]));
+    const result = evaluateTotalCredits(config, plan());
     expect(result).toMatchObject({
       state: 'unsatisfied',
       currentHundredths: 0,
@@ -74,10 +89,7 @@ describe('sumCredits', () => {
   });
 
   it('liefert für Web Development mit BE 500 Hundertstel-ECTS', () => {
-    const result = evaluateTotalCredits(
-      config,
-      plan([{ curriculumItemId: 'hdm-mi7-113114', officialStatus: 'BE' }]),
-    );
+    const result = evaluateTotalCredits(config, plan('BE'));
     expect(result).toMatchObject({
       state: 'unsatisfied',
       currentHundredths: 500,
@@ -85,4 +97,13 @@ describe('sumCredits', () => {
       contributingItemIds: ['hdm-mi7-113114'],
     });
   });
+
+  it.each(['AN', 'NB', 'EN', 'RT'] as const)(
+    'rechnet für %s keine ECTS an',
+    (status) => {
+      expect(evaluateTotalCredits(config, plan(status)).currentHundredths).toBe(
+        0,
+      );
+    },
+  );
 });

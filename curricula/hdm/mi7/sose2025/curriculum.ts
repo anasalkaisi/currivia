@@ -1,10 +1,13 @@
-export const s1CurriculumDefinition = {
+export const curriculumDefinition = {
   regulationVersion: 'mi7-sose2025',
   sourceRevision: 'hdm-sose2025-initial',
   completeness: 'incomplete-development-slice',
   applicability: {
     program: 'medieninformatik-bachelor',
     enrollmentFrom: 'sose-2025',
+  },
+  gradingScale: {
+    allowedHundredths: [100, 130, 170, 200, 230, 270, 300, 330, 370, 400, 500],
   },
   sources: [
     {
@@ -63,7 +66,12 @@ export const s1CurriculumDefinition = {
       area: 'basic-compulsory',
       recommendedSemester: 1,
       creditsHundredths: 500,
-      assessment: { type: 'written-exam', minutes: 60 },
+      assessment: {
+        id: 'hdm-mi7-113114-written-exam',
+        title: { de: 'Schriftliche Prüfung' },
+        type: 'written-exam',
+        minutes: 60,
+      },
       prerequisites: 'none',
       sourceRefs: ['Q-SPO-2025', 'Q-MHB-2025'],
     },

@@ -1,4 +1,8 @@
-import type { CurriculumConfig, PersonalPlan } from '@currivia/schema';
+import type {
+  CurriculumConfig,
+  ModuleRecord,
+  PersonalPlan,
+} from '@currivia/schema';
 import {
   type ReactNode,
   useCallback,
@@ -27,6 +31,7 @@ type Action =
   | { type: 'created'; plan: PersonalPlan }
   | { type: 'setPassed'; itemId: string }
   | { type: 'resetOpen'; itemId: string }
+  | { type: 'saveModuleRecord'; record: ModuleRecord }
   | { type: 'saving' }
   | { type: 'saved' }
   | { type: 'saveFailed' };
@@ -54,17 +59,26 @@ function reducer(state: State, action: Action): State {
       };
     case 'setPassed': {
       if (!state.plan) return state;
-      const completions = state.plan.completions.some(
-        (completion) => completion.curriculumItemId === action.itemId,
-      )
-        ? state.plan.completions
+      const existing = state.plan.moduleRecords.find(
+        (record) => record.curriculumItemId === action.itemId,
+      );
+      const moduleRecords = existing
+        ? state.plan.moduleRecords.map((record) =>
+            record.curriculumItemId === action.itemId
+              ? { ...record, officialStatus: 'BE' as const }
+              : record,
+          )
         : [
-            ...state.plan.completions,
-            { curriculumItemId: action.itemId, officialStatus: 'BE' as const },
+            ...state.plan.moduleRecords,
+            {
+              curriculumItemId: action.itemId,
+              officialStatus: 'BE' as const,
+              componentRecords: [],
+            },
           ];
       return {
         ...state,
-        plan: { ...state.plan, completions },
+        plan: { ...state.plan, moduleRecords },
         saveState: 'saving',
         revision: state.revision + 1,
       };
@@ -75,13 +89,32 @@ function reducer(state: State, action: Action): State {
         ...state,
         plan: {
           ...state.plan,
-          completions: state.plan.completions.filter(
-            (completion) => completion.curriculumItemId !== action.itemId,
+          moduleRecords: state.plan.moduleRecords.filter(
+            (record) => record.curriculumItemId !== action.itemId,
           ),
         },
         saveState: 'saving',
         revision: state.revision + 1,
       };
+    case 'saveModuleRecord': {
+      if (!state.plan) return state;
+      const exists = state.plan.moduleRecords.some(
+        (record) => record.curriculumItemId === action.record.curriculumItemId,
+      );
+      const moduleRecords = exists
+        ? state.plan.moduleRecords.map((record) =>
+            record.curriculumItemId === action.record.curriculumItemId
+              ? action.record
+              : record,
+          )
+        : [...state.plan.moduleRecords, action.record];
+      return {
+        ...state,
+        plan: { ...state.plan, moduleRecords },
+        saveState: 'saving',
+        revision: state.revision + 1,
+      };
+    }
     case 'saving':
       return { ...state, saveState: 'saving' };
     case 'saved':
@@ -102,6 +135,14 @@ export function PlanProvider({
 }) {
   const [state, dispatch] = useReducer(reducer, initialState);
   const saveQueue = useRef(Promise.resolve());
+  const nextSaveRequestId = useRef(0);
+  const claimedSaveRequestIds = useRef(new Set<number>());
+  const saveWaiters = useRef(
+    new Map<
+      number,
+      { resolve: () => void; reject: (reason?: unknown) => void }
+    >(),
+  );
 
   useEffect(() => {
     let active = true;
@@ -122,23 +163,43 @@ export function PlanProvider({
     if (state.revision === 0 || !state.plan) return;
 
     const planToSave = state.plan;
+    const requestIdsToSettle = [...saveWaiters.current.keys()].filter(
+      (requestId) => !claimedSaveRequestIds.current.has(requestId),
+    );
+    requestIdsToSettle.forEach((requestId) =>
+      claimedSaveRequestIds.current.add(requestId),
+    );
     dispatch({ type: 'saving' });
     saveQueue.current = saveQueue.current
       .catch(() => undefined)
       .then(() => repository.save(planToSave))
-      .then(() => dispatch({ type: 'saved' }))
-      .catch(() => dispatch({ type: 'saveFailed' }));
+      .then(() => {
+        dispatch({ type: 'saved' });
+        requestIdsToSettle.forEach((requestId) => {
+          saveWaiters.current.get(requestId)?.resolve();
+          saveWaiters.current.delete(requestId);
+          claimedSaveRequestIds.current.delete(requestId);
+        });
+      })
+      .catch((error: unknown) => {
+        dispatch({ type: 'saveFailed' });
+        requestIdsToSettle.forEach((requestId) => {
+          saveWaiters.current.get(requestId)?.reject(error);
+          saveWaiters.current.delete(requestId);
+          claimedSaveRequestIds.current.delete(requestId);
+        });
+      });
   }, [repository, state.plan, state.revision]);
 
   const createPlan = useCallback(() => {
     dispatch({
       type: 'created',
       plan: {
-        schemaVersion: 1,
+        schemaVersion: 2,
         regulationVersion: config.regulationVersion,
         enrollmentSemester: config.applicability.enrollmentFrom,
         regulationConfirmedAt: new Date().toISOString(),
-        completions: [],
+        moduleRecords: [],
       },
     });
   }, [config]);
@@ -151,9 +212,25 @@ export function PlanProvider({
     dispatch({ type: 'resetOpen', itemId });
   }, []);
 
+  const saveModuleRecord = useCallback((record: ModuleRecord) => {
+    const requestId = nextSaveRequestId.current + 1;
+    nextSaveRequestId.current = requestId;
+    const completion = new Promise<void>((resolve, reject) => {
+      saveWaiters.current.set(requestId, { resolve, reject });
+    });
+    dispatch({ type: 'saveModuleRecord', record });
+    return completion;
+  }, []);
+
   const value = useMemo(
-    () => ({ ...state, createPlan, setPassed, resetOpen }),
-    [state, createPlan, setPassed, resetOpen],
+    () => ({
+      ...state,
+      createPlan,
+      setPassed,
+      resetOpen,
+      saveModuleRecord,
+    }),
+    [state, createPlan, setPassed, resetOpen, saveModuleRecord],
   );
 
   return <PlanContext.Provider value={value}>{children}</PlanContext.Provider>;

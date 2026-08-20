@@ -11,5 +11,6 @@ pnpm install
 pnpm dev
 ```
 
-Die S1-Spezifikation und ihre Grenzen stehen in
-[`docs/slices/s1-ects-walking-skeleton.de.md`](docs/slices/s1-ects-walking-skeleton.de.md).
+Der aktuelle S2-Umfang und seine Grenzen stehen in
+[`docs/slices/s2-study-history.de.md`](docs/slices/s2-study-history.de.md). S2
+baut auf dem quellenbelegten S1-Walking-Skeleton auf.
