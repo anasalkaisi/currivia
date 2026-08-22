@@ -1,7 +1,7 @@
 # Currivia: AI-native Delivery-Plan
 
-**Stand:** 19. August 2026
-**Phase:** S2 in Review
+**Stand:** 22. August 2026
+**Phase:** S3 gemergt, Abnahme offen
 **Scope:** `v0.1.0-alpha.x`
 **Produktvertrag:** [mvp-specification.de.md](./mvp-specification.de.md)
 
@@ -31,14 +31,15 @@ Abgeschlossen:
 - S1 vollständig implementiert und technisch verifiziert
 - S2 detailliert, implementiert und technisch verifiziert
 - S1 über Pull Request #2 gemergt
-- S2-Recap, Issue #3 und Review-Branch
+- S2 über Pull Request #4 gemergt; Issue #3 geschlossen
+- S3 detailliert (Issue #5), implementiert und über Pull Request #6 gemergt
+- S3-Recap erstellt
 
 Als Nächstes:
 
-1. S2 fachlich und visuell menschlich abnehmen
+1. S3 fachlich und visuell menschlich abnehmen
 2. unabhängige Zweitprüfung der verwendeten offiziellen Quellen abschließen
-3. S2-Draft-PR prüfen und Review abschließen
-4. S2 mergen und erst danach S3 detaillieren
+3. erst danach S4 detaillieren
 
 ## 3. Arbeitsprinzip
 
@@ -545,10 +546,9 @@ Das Repository soll deshalb zeigen:
 
 ## 17. Nächste konkrete Aktion
 
-S2 ist implementiert und technisch verifiziert. Die nächste Arbeitssitzung:
+S3 ist implementiert, technisch verifiziert und über Pull Request #6 gemergt. Die nächste Arbeitssitzung:
 
-1. liest den kompakten [Projektstatus](./current-state.de.md), die [S2-Spezifikation](../slices/s2-study-history.de.md) und den [S2-Recap](../slices/s2-recap.de.md),
-2. prüft Statussemantik, S1→S2-Migration und den vollständigen Erfassungsweg,
-3. führt die menschliche fachliche und visuelle Abnahme durch,
-4. prüft den S2-Draft-PR gegen den gemergten S1-Stand und
-5. beginnt erst nach abgeschlossenem S2-Review mit der Detailplanung von S3.
+1. liest den kompakten [Projektstatus](./current-state.de.md) und den [S3-Recap](../slices/s3-recap.de.md),
+2. führt die menschliche fachliche und visuelle Abnahme von S3 durch (Planungsweg, Verschieben per Tastatur, Ist-/Prognose-Trennung, Reload-Persistenz),
+3. schließt die unabhängige Zweitprüfung der offiziellen Quellen ab und
+4. beginnt erst nach abgeschlossener S3-Abnahme mit der Detailplanung von S4.
