@@ -30,3 +30,23 @@ test('S3: Modul ohne Drag-and-drop verschieben, rückgängig machen und laden', 
   await expect(page.getByLabel('Planungssemester')).toHaveValue('regular-3');
   expect((await new AxeBuilder({ page }).analyze()).violations).toEqual([]);
 });
+
+test('S3: Planner bleibt auf kleinen Bildschirmen innerhalb des Viewports', async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto('/#/onboarding');
+  await page.getByRole('checkbox', { name: /SPO-Version.*geprüft/i }).check();
+  await page.getByRole('button', { name: /Plan öffnen/ }).click();
+
+  await expect(
+    page.getByRole('heading', { name: 'Semester für Semester.' }),
+  ).toBeVisible();
+  expect(
+    await page.evaluate(
+      () =>
+        document.documentElement.scrollWidth <=
+        document.documentElement.clientWidth,
+    ),
+  ).toBe(true);
+});
